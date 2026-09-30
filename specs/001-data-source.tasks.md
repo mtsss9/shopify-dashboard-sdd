@@ -59,12 +59,12 @@ Planning decisions D1–D4 are listed in plan §8.
   - Add a smoke test that the base fixture loads into the fake.
   - *Covers:* no acceptance criteria (groundwork for all of them).
 
-- [ ] **T2. Schema and errors** (`schema.py`, `errors.py`)
+- [x] **T2. Schema and errors** (`schema.py`, `errors.py`)
   - Column specs, enums, province list, unique keys and the single header → snake_case mapping.
   - `ErrorCategory` and `DataSourceError`.
   - *Covers:* AC-16 (mapping and column order match §9, unit level).
 
-- [ ] **T3. Config** (`config.py`)
+- [x] **T3. Config** (`config.py`)
   - `load_config` reads the two environment variables. `Config.__repr__` hides both values.
   - *Covers:* AC-23.
 

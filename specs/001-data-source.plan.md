@@ -54,6 +54,7 @@ All code goes in the package `src/shopify_dashboard/`. No module imports Streaml
 | `fixtures/base_valid.json` | Small, fully valid dataset (§5.1) |
 | `fixtures/threshold_100_orders.json` | 100 valid orders for the 5% threshold criterion (§5.2) |
 | `test_schema.py` | The mapping is complete and matches the spec §9 table |
+| `test_errors.py` | Error categories match spec §7.1; `DataSourceError` carries category and message |
 | `test_config.py` | Environment variable handling |
 | `test_sheets_client.py` | Adapter render options, one batch read, exception mapping (gspread is mocked) |
 | `test_parsing.py` | Headers, blank rows, cell conversion |
@@ -76,7 +77,7 @@ Every function has type hints and a docstring naming the spec section, as CLAUDE
 
 ### schema.py
 - `TABS: tuple[str, ...]`: `("Products", "Customers", "Orders")`, in validation order.
-- `ColumnSpec` (frozen dataclass): `header`, `name` (snake_case), `kind` (`str | int | money | date | enum`), `required`, `calculated`, `allowed` (for enums), `pattern` (regex for ID formats).
+- `ColumnSpec` (frozen dataclass): `header`, `name` (snake_case), `kind` (`str | int | decimal | date | enum`; `decimal` follows the spec's type name and covers money columns and Margin %), `required`, `calculated`, `allowed` (for enums), `pattern` (regex for ID formats).
 - `COLUMNS: dict[str, tuple[ColumnSpec, ...]]`: the one place that maps headers to snake_case names. Output column order is tuple order, which matches spec §9.
 - `STATUSES`, `SALES_CHANNELS`, `CATEGORIES`, `PROVINCES`, `UNIQUE_KEYS` (`Orders: Order ID`, `Products: SKU`, `Customers: Customer ID`).
 
@@ -113,7 +114,7 @@ Every function has type hints and a docstring naming the spec section, as CLAUDE
   - raises `empty_tab` when no data rows remain.
 - `coerce_cell(value, spec) -> tuple[value | None, reason | None]`: converts one cell with no side effects.
   - Text is trimmed.
-  - Money must be int or float (text breaks the rule).
+  - A decimal must be int or float (text breaks the rule).
   - Integers must be whole numbers.
   - A date may be a serial number (epoch 1899-12-30) or ISO text parsed strictly, so `2026-02-30` fails.
   - A blank Discount becomes 0.
@@ -268,3 +269,8 @@ The next SDD step is to turn these steps into `specs/001-data-source.tasks.md`, 
 - **D2. A blank *calculated* cell** in the sheet is not a rule break. For Line Total it means there is nothing to compare against, so no warning is recorded. Spec §3 was updated to say so.
 - **D3. A sheet Product Name or Category that differs from the Products lookup** is ignored. The lookup value is used (§3.1), and no warning is recorded.
 - **D4. The API timeout** is 30 seconds, with no retries. The Refresh button in spec 003 is the retry.
+
+### Changes approved during T2 (2026-09-30)
+
+- **D5. The column type for decimals is named `decimal`,** not `money`, to match the spec's type names. It covers the money columns and Margin %.
+- **D6. Error tests live in `tests/test_errors.py`,** added to the §2 file list.
