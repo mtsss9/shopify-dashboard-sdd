@@ -34,7 +34,7 @@ Row 1 of each tab is the header, and data starts on row 2. The number of rows is
   (Implementation note: request unformatted values, with dates as serial numbers.)
 - Formula columns (marked *calculated* below) are read as their computed values, but only as a cross-check. See §3.1.
 - Leading and trailing whitespace is removed from all text values and headers before any rule is checked. After that, headers and enum values must match exactly, including case.
-- **Required** means the column must exist and the cell must not be blank. The only exception is where a rule gives blank a meaning (Discount).
+- **Required** means the column must exist and the cell must not be blank. There are two exceptions: a rule that gives blank a meaning (Discount), and *calculated* columns, where a blank cell is not a rule break because the value is recomputed (§3.1).
 - Money columns are stored as `float64`. Money comparisons use a tolerance of 0.01 CAD (1 cent).
 - Integer columns must hold whole numbers (`2.5` breaks the rule).
 - A text value in a number or date column breaks the rule (e.g. the text `"45"` in `Quantity`).

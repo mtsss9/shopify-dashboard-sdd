@@ -1,0 +1,5 @@
+# Pinned in T1 from a fresh .venv install (ranges: plan 001 §4).
+gspread==6.2.1
+google-auth==2.59.1
+pandas==2.3.3
+streamlit==1.64.0         # used by spec 003 only; not imported by spec 001 code
