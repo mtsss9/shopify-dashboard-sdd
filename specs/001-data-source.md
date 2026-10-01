@@ -46,6 +46,8 @@ Row 1 of each tab is the header, and data starts on row 2. The number of rows is
 
 The code recomputes every *calculated* column from the validated data. The sheet's values are never used in the output. Tests compare the recomputed values with the sheet's values as a cross-check.
 
+**Unreadable calculated values.** A calculated cell is *unreadable* when it holds a Google Sheets error value (`#N/A`, `#REF!`, `#VALUE!`, `#DIV/0!`, `#NAME?`, `#NUM!`, `#NULL!`, `#ERROR!`) in any calculated column, including Product Name and Category in Orders, or, in a number calculated column, any value that is not a valid number of that type (e.g. text in `Units Sold`, or `2.5` in `Orders`). An unreadable calculated cell never drops the row. Its value is treated as missing for cross-checks, the same as a blank calculated cell, and a `warning` is recorded with reason `calculated value unreadable`. Error values in columns that are not calculated get no special treatment.
+
 | Tab | Column | Recomputed as |
 |---|---|---|
 | Orders | Product Name, Category | Looked up from validated Products by SKU |
@@ -141,6 +143,7 @@ Messages never contain:
 | An order references a SKU or Customer ID that is missing from the validated table | Drop the order. The reason says `SKU not found` or `Customer not found`. |
 | The sheet's Line Total differs from the recomputed value by more than 0.01 | Keep the row and record it with severity `warning`. |
 | An Order Date is earlier than the customer's `Customer Since` | Keep the row and record it with severity `warning`. |
+| A calculated cell is unreadable (§3.1) | Keep the row and record it with severity `warning` and reason `calculated value unreadable`. The value is treated as missing, so no Line Total mismatch warning is recorded for it. |
 | Extra columns not listed here | Ignore them. |
 
 A row that breaks several rules is recorded once for each rule it breaks, but it is dropped only once.
@@ -255,6 +258,7 @@ All criteria except the manual check are pytest tests that use fixtures in `test
 - [ ] A fixture with two `Status` columns in Orders raises `duplicate_column`, naming `Orders` and `Status`.
 - [ ] A completely empty tab (no header row) raises `empty_tab`, naming the tab.
 - [ ] A row with values only in extra columns is skipped and not reported, and later rows keep their real sheet row numbers.
+- [ ] An unreadable calculated cell (`#N/A` in Orders `Product Name`, text in Products `Units Sold`, `#VALUE!` in Orders `Line Total (CAD)`) keeps its row and records one `warning` with reason `calculated value unreadable`. The Line Total case records no mismatch warning, and none of these count towards the drop rate.
 
 ## 11. Resolved questions
 

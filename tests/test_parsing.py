@@ -247,6 +247,42 @@ def test_blank_calculated_cell_is_not_a_rule_break() -> None:
     assert coerce_cell("", spec("Orders", "Product Name")) == (None, None)
 
 
+UNREADABLE = "calculated value unreadable"
+
+
+@pytest.mark.parametrize(
+    ("column", "value"),
+    [
+        (spec("Products", "Units Sold"), "lots"),
+        (spec("Products", "Units Sold"), 2.5),
+        (spec("Customers", "Orders"), True),
+        (LINE_TOTAL, "#VALUE!"),
+        (LINE_TOTAL, "40"),
+        (spec("Orders", "Product Name"), "#N/A"),
+        (spec("Orders", "Category"), " #REF! "),
+        (spec("Products", "Margin %"), "#DIV/0!"),
+    ],
+)
+def test_unreadable_calculated_values(column: ColumnSpec, value: object) -> None:
+    """D16: Sheets error values in any calculated column; wrong type in number ones."""
+    assert coerce_cell(value, column) == (None, UNREADABLE)
+
+
+@pytest.mark.parametrize("error", ["#N/A", "#REF!", "#VALUE!", "#DIV/0!", "#NAME?", "#NUM!",
+                                   "#NULL!", "#ERROR!"])  # fmt: skip
+def test_every_sheets_error_value_is_unreadable(error: str) -> None:
+    assert coerce_cell(error, spec("Orders", "Product Name")) == (None, UNREADABLE)
+
+
+def test_readable_calculated_values_pass() -> None:
+    assert coerce_cell(" Classic Tee ", spec("Orders", "Product Name")) == ("Classic Tee", None)
+    assert coerce_cell(40, LINE_TOTAL) == (40.0, None)
+
+
+def test_error_value_in_non_calculated_text_column_is_text() -> None:
+    assert coerce_cell("#N/A", NAME) == ("#N/A", None)
+
+
 def test_decimal_accepts_int_and_float() -> None:
     assert coerce_cell(45, UNIT_PRICE) == (45.0, None)
     assert coerce_cell(32.5, UNIT_PRICE) == (32.5, None)

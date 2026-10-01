@@ -124,6 +124,7 @@ Every function has type hints and a docstring naming the spec section, as CLAUDE
   - A date may be a serial number (epoch 1899-12-30) or ISO text parsed strictly, so `2026-02-30` fails. A serial with a time part keeps only the date (decision D13).
   - A blank Discount becomes 0.
   - Any other blank required cell gives the reason `required`.
+  - A calculated cell that holds a Sheets error value (`#N/A`, `#REF!`, ...) or fails its type conversion gives the reason `calculated value unreadable` (decision D16). Validation turns that reason into a `warning` and keeps the row.
 
 ### report.py
 - `Severity` (str Enum): `dropped`, `warning`.
@@ -142,7 +143,7 @@ Each function returns the valid rows plus report entries. A row that breaks seve
   - `0 ≤ Discount ≤ Quantity × Unit Price` with a 0.01 tolerance;
   - Order Date must not be after `today`;
   - `SKU not found` and `Customer not found` are checked against the **validated** tables;
-  - warnings: Line Total mismatch over 0.01, and Order Date before Customer Since.
+  - warnings: Line Total mismatch over 0.01, and Order Date before Customer Since. An unreadable sheet Line Total counts as missing, so it gets the D16 warning only, never a mismatch warning.
 - `find_duplicate_keys(tab, key) -> entries`: every row that shares a key is dropped (decision D1).
 - `validate_all(tabs, today) -> (valid rows per tab, ValidationReport)`: runs Products, then Customers, then Orders, and builds the `TabSummary` for each tab. Warnings never count as drops.
 
@@ -246,6 +247,7 @@ All criteria are tested in `test_loader.py` through `load_data(fake, today=TODAY
 | Repeated header | base; `add_column(Orders, "Status")` | raises `duplicate_column`; message contains `Orders` and `Status` |
 | Completely empty tab | base; set `Products` to `[]` | raises `empty_tab`, naming `Products` |
 | Values only in extra columns | base; `add_column(Orders, "Notes")`, then append a row with only `Notes` filled | the row is skipped; no entries; output equals the base data |
+| Unreadable calculated cells | base; `#N/A` in one Orders `Product Name`, `"lots"` in one Products `Units Sold`, `#VALUE!` in one Orders `Line Total (CAD)` | every row is kept; exactly one `calculated value unreadable` warning each; no mismatch warning; drop rate unchanged |
 | **Manual check** (real sheet) | none; run by hand with `.env` set | 1,000 / 10 / 150 rows and 0 dropped. Record the result in the task list. |
 
 ## 6. Order of work
@@ -297,3 +299,8 @@ The next SDD step is to turn these steps into `specs/001-data-source.tasks.md`, 
 - **D13. A date serial with a time part keeps only the date** (spec §3).
 - **D14. New error category `duplicate_column`** for a spec column header that appears more than once in a tab (spec §7.1, spec 003 §3). Only spec columns are checked, so repeated blank or extra headers are not an error.
 - **D15. A completely empty tab raises `empty_tab`,** and a row with values only in extra columns is skipped as blank (spec §2, §7.1).
+
+### Changes approved after T6 (2026-10-01)
+
+- **D16. Unreadable calculated cells are warnings, not drops.** A Sheets error value in any calculated column, or a wrongly typed value in a number calculated column, keeps the row, is treated as missing for cross-checks, and records a `warning` with reason `calculated value unreadable` (spec §3.1, §7.2). Warnings never count towards the drop rate.
+- **D17. Repeated-header scope confirmed:** only spec columns are checked for `duplicate_column` (D14).

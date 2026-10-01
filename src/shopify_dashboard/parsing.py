@@ -20,6 +20,12 @@ NOT_A_NUMBER = "must be a number"
 NOT_WHOLE = "must be a whole number"
 NOT_A_DATE = "must be a date (YYYY-MM-DD)"
 NOT_REAL_DATE = "not a real calendar date"
+UNREADABLE = "calculated value unreadable"
+
+SHEETS_ERRORS = frozenset(
+    {"#N/A", "#REF!", "#VALUE!", "#DIV/0!", "#NAME?", "#NUM!", "#NULL!", "#ERROR!"}
+)
+"""Google Sheets error values, returned as text with unformatted rendering (spec §3.1)."""
 
 
 @dataclass(frozen=True)
@@ -98,12 +104,25 @@ def _parse_tab(tab: str, rows: list[list[object]]) -> ParsedTab:
 
 
 def coerce_cell(value: object, spec: ColumnSpec) -> tuple[object | None, str | None]:
-    """Convert one raw cell to its typed value. Implements specs/001-data-source.md §3.
+    """Convert one raw cell to its typed value. Implements specs/001-data-source.md §3, §3.1.
 
     Returns ``(value, None)`` on success or ``(None, reason)`` when a rule is broken.
     A blank Discount is 0; a blank calculated cell is ``(None, None)`` (decision D2).
+    A calculated cell holding a Sheets error value, or failing its type conversion, gives
+    ``(None, UNREADABLE)``; validation records that as a warning (decision D16).
     Enum membership and ID formats are checked in validation, not here.
     """
+    typed, reason = _coerce(value, spec)
+    if spec.calculated and (reason is not None or _is_sheets_error(value)):
+        return None, UNREADABLE
+    return typed, reason
+
+
+def _is_sheets_error(value: object) -> bool:
+    return isinstance(value, str) and value.strip() in SHEETS_ERRORS
+
+
+def _coerce(value: object, spec: ColumnSpec) -> tuple[object | None, str | None]:
     if _is_blank(value):
         if spec.header == DISCOUNT_HEADER:
             return 0.0, None
