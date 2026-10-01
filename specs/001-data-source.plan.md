@@ -82,7 +82,7 @@ Every function has type hints and a docstring naming the spec section, as CLAUDE
 - `STATUSES`, `SALES_CHANNELS`, `CATEGORIES`, `PROVINCES`, `UNIQUE_KEYS` (`Orders: Order ID`, `Products: SKU`, `Customers: Customer ID`).
 
 ### errors.py
-- `ErrorCategory` (str Enum): `config`, `auth`, `unreachable`, `missing_tab`, `missing_column`, `empty_tab`.
+- `ErrorCategory` (str Enum): `config`, `auth`, `unreachable`, `missing_tab`, `missing_column`, `duplicate_column`, `empty_tab`.
 - `DataSourceError(Exception)`: has `category` and `message`. `__str__` returns only the message.
 
 ### config.py
@@ -90,7 +90,7 @@ Every function has type hints and a docstring naming the spec section, as CLAUDE
 - `load_config(env: Mapping[str, str] = os.environ) -> Config`: raises `config` naming the first unset or blank variable. The message holds the variable **name** only.
 
 ### sheets_client.py
-- `RawTabs = dict[str, list[list[object]]]`.
+- `RawTabs = dict[str, list[list[object]]]`, imported from `parsing.py` (decision D11).
 - `SheetsClient` (Protocol): `fetch_tabs(tabs: Sequence[str]) -> RawTabs`.
 - `GspreadSheetsClient(config: Config)`:
   - `fetch_tabs(tabs)`:
@@ -105,18 +105,23 @@ Every function has type hints and a docstring naming the spec section, as CLAUDE
 
 ### parsing.py
 - `ParsedTab` (dataclass): `tab`, `headers` (trimmed), `rows: list[ParsedRow]`, where `ParsedRow` = `sheet_row: int` + `cells: dict[header, raw value]`.
+- `RawTabs` is defined here (decision D11).
 - `parse_tabs(raw: RawTabs) -> dict[str, ParsedTab]`, in order:
   - raises `missing_tab` for any tab absent from `TABS`;
-  - trims headers and ignores extra columns;
-  - raises `missing_column` (tab + column) for any spec column that is missing;
-  - skips fully blank rows but keeps the real sheet row number (header = 1);
-  - drops trailing blanks;
-  - raises `empty_tab` when no data rows remain.
+  - per tab, in `TABS` order:
+    - raises `empty_tab` when the tab is completely empty (no rows, or every row blank);
+    - trims headers and ignores extra columns;
+    - raises `missing_column` (tab + column) for any spec column that is missing;
+    - raises `duplicate_column` (tab + column) for any spec column whose trimmed header appears more than once; repeated extra or blank headers are ignored;
+    - pads rows shorter than the header with `""`, because the API omits trailing empty cells (decision D10);
+    - skips rows where every spec column is blank, so values only in extra columns don't count, but keeps the real sheet row number (header = 1);
+    - drops trailing blanks;
+    - raises `empty_tab` when no data rows remain.
 - `coerce_cell(value, spec) -> tuple[value | None, reason | None]`: converts one cell with no side effects.
-  - Text is trimmed.
+  - Text is trimmed. A number in a text column becomes text (decision D12).
   - A decimal must be int or float (text breaks the rule).
   - Integers must be whole numbers.
-  - A date may be a serial number (epoch 1899-12-30) or ISO text parsed strictly, so `2026-02-30` fails.
+  - A date may be a serial number (epoch 1899-12-30) or ISO text parsed strictly, so `2026-02-30` fails. A serial with a time part keeps only the date (decision D13).
   - A blank Discount becomes 0.
   - Any other blank required cell gives the reason `required`.
 
@@ -238,6 +243,9 @@ All criteria are tested in `test_loader.py` through `load_data(fake, today=TODAY
 | Unset `SHEET_ID` | `monkeypatch.delenv("SHEET_ID")` (`test_config.py`) | raises `config`; message contains `SHEET_ID` |
 | Auth and API failures | patched gspread raising each error (`test_sheets_client.py`) | raise `auth` / `unreachable`; the fake ID and path are absent; no `Traceback` in the message |
 | Header-only tab | base; `clear_data_rows(Customers)` | raises `empty_tab`, naming `Customers` |
+| Repeated header | base; `add_column(Orders, "Status")` | raises `duplicate_column`; message contains `Orders` and `Status` |
+| Completely empty tab | base; set `Products` to `[]` | raises `empty_tab`, naming `Products` |
+| Values only in extra columns | base; `add_column(Orders, "Notes")`, then append a row with only `Notes` filled | the row is skipped; no entries; output equals the base data |
 | **Manual check** (real sheet) | none; run by hand with `.env` set | 1,000 / 10 / 150 rows and 0 dropped. Record the result in the task list. |
 
 ## 6. Order of work
@@ -280,3 +288,12 @@ The next SDD step is to turn these steps into `specs/001-data-source.tasks.md`, 
 - **D7. `drop_rate` is a computed property** of `TabSummary`, not a stored field, so it can never disagree with the counts.
 - **D8. Email masking lives in `ReportEntry`** and is idempotent. The edge cases are recorded in spec §7.3.
 - **D9. No rounding in the loader.** Money keeps full precision; the 0.01 tolerance applies only to money comparisons (the Discount limit and the Line Total check). Margin % is never rounded or compared with a tolerance. Display rounding to 2 decimals belongs to the UI (spec 003 §5).
+
+### Changes approved during T5 (2026-10-01)
+
+- **D10. Short rows are padded with blanks.** The Sheets API omits trailing empty cells, so a row can be shorter than the header.
+- **D11. `RawTabs` is defined in `parsing.py`.** `sheets_client.py` (T10) imports it from there.
+- **D12. A number in a text column becomes text** (spec §3). ID formats are still checked in validation.
+- **D13. A date serial with a time part keeps only the date** (spec §3).
+- **D14. New error category `duplicate_column`** for a spec column header that appears more than once in a tab (spec §7.1, spec 003 §3). Only spec columns are checked, so repeated blank or extra headers are not an error.
+- **D15. A completely empty tab raises `empty_tab`,** and a row with values only in extra columns is skipped as blank (spec §2, §7.1).

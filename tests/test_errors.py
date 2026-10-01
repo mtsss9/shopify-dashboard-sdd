@@ -12,6 +12,7 @@ def test_categories_match_spec_7_1() -> None:
         "unreachable",
         "missing_tab",
         "missing_column",
+        "duplicate_column",
         "empty_tab",
     ]
 

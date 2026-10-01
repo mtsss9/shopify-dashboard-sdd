@@ -11,6 +11,7 @@ class ErrorCategory(StrEnum):
     UNREACHABLE = "unreachable"
     MISSING_TAB = "missing_tab"
     MISSING_COLUMN = "missing_column"
+    DUPLICATE_COLUMN = "duplicate_column"
     EMPTY_TAB = "empty_tab"
 
 

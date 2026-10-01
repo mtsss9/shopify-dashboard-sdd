@@ -7,6 +7,7 @@ import pytest
 from conftest import (
     TODAY,
     add_column,
+    append_row,
     clear_data_rows,
     drop_column,
     insert_blank_row,
@@ -137,6 +138,65 @@ def test_header_only_tab_raises_empty_tab(base_tabs: dict) -> None:
 def test_only_blank_rows_raises_empty_tab(base_tabs: dict) -> None:
     clear_data_rows(base_tabs, "Products")
     base_tabs["Products"] += [[], [""] * 9]
+    with pytest.raises(DataSourceError) as info:
+        parse_tabs(base_tabs)
+    assert info.value.category is ErrorCategory.EMPTY_TAB
+
+
+def test_repeated_status_header_raises_duplicate_column(base_tabs: dict) -> None:
+    """AC-26."""
+    add_column(base_tabs, "Orders", "Status", "Fulfilled")
+    with pytest.raises(DataSourceError) as info:
+        parse_tabs(base_tabs)
+    assert info.value.category is ErrorCategory.DUPLICATE_COLUMN
+    assert "Orders" in str(info.value)
+    assert "Status" in str(info.value)
+
+
+def test_repeat_after_trimming_is_a_duplicate(base_tabs: dict) -> None:
+    add_column(base_tabs, "Products", " SKU ", "SKU-0001")
+    with pytest.raises(DataSourceError, match="SKU") as info:
+        parse_tabs(base_tabs)
+    assert info.value.category is ErrorCategory.DUPLICATE_COLUMN
+
+
+def test_repeated_extra_or_blank_headers_are_ignored(base_tabs: dict) -> None:
+    for header in ("Notes", "Notes", "", ""):
+        add_column(base_tabs, "Orders", header)
+    assert len(parse_tabs(base_tabs)["Orders"].rows) == 8
+
+
+def test_missing_column_is_reported_before_duplicate(base_tabs: dict) -> None:
+    add_column(base_tabs, "Orders", "SKU")
+    drop_column(base_tabs, "Orders", "Status")
+    with pytest.raises(DataSourceError) as info:
+        parse_tabs(base_tabs)
+    assert info.value.category is ErrorCategory.MISSING_COLUMN
+
+
+@pytest.mark.parametrize("rows", [[], [[]], [[""] * 9, [], ["  "]]])
+def test_completely_empty_tab_raises_empty_tab(base_tabs: dict, rows: list) -> None:
+    """AC-27: no header row (or only blank rows) is empty_tab, not missing_column."""
+    base_tabs["Products"] = rows
+    with pytest.raises(DataSourceError, match="Products") as info:
+        parse_tabs(base_tabs)
+    assert info.value.category is ErrorCategory.EMPTY_TAB
+
+
+def test_row_with_values_only_in_extra_columns_is_skipped(base_tabs: dict) -> None:
+    """AC-28: skipped, and later rows keep their real sheet row numbers."""
+    add_column(base_tabs, "Orders", "Notes")
+    insert_blank_row(base_tabs, "Orders", 3)
+    set_cell(base_tabs, "Orders", 3, "Notes", "call customer")
+    append_row(base_tabs, "Orders", {"Notes": "end of list"})
+    orders = parse_tabs(base_tabs)["Orders"]
+    assert [r.sheet_row for r in orders.rows] == [2, 4, 5, 6, 7, 8, 9, 10]
+
+
+def test_extra_columns_only_tab_counts_as_no_data(base_tabs: dict) -> None:
+    clear_data_rows(base_tabs, "Customers")
+    add_column(base_tabs, "Customers", "Notes")
+    append_row(base_tabs, "Customers", {"Notes": "x"})
     with pytest.raises(DataSourceError) as info:
         parse_tabs(base_tabs)
     assert info.value.category is ErrorCategory.EMPTY_TAB

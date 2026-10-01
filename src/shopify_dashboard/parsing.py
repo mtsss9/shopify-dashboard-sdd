@@ -60,30 +60,40 @@ def parse_tabs(raw: RawTabs) -> dict[str, ParsedTab]:
 
 
 def _parse_tab(tab: str, rows: list[list[object]]) -> ParsedTab:
-    headers = tuple("" if h is None else str(h).strip() for h in (rows[0] if rows else []))
-    index: dict[str, int] = {}
+    """Check order (spec §7.1): completely empty, missing, duplicate, no data rows."""
+    empty = DataSourceError(ErrorCategory.EMPTY_TAB, f"The {tab} tab has no data rows.")
+    if all(_is_blank(v) for row in rows for v in row):
+        raise empty
+
+    headers = tuple("" if h is None else str(h).strip() for h in rows[0])
+    positions: dict[str, list[int]] = {}
     for i, header in enumerate(headers):
-        index.setdefault(header, i)  # a repeated header: the first one wins
+        positions.setdefault(header, []).append(i)
 
     for spec in COLUMNS[tab]:
-        if spec.header not in index:
+        if spec.header not in positions:
             raise DataSourceError(
                 ErrorCategory.MISSING_COLUMN,
                 f"The {tab} tab is missing the {spec.header} column.",
             )
+    for spec in COLUMNS[tab]:
+        if len(positions[spec.header]) > 1:
+            raise DataSourceError(
+                ErrorCategory.DUPLICATE_COLUMN,
+                f"The {tab} tab has more than one {spec.header} column.",
+            )
 
+    index = {spec.header: positions[spec.header][0] for spec in COLUMNS[tab]}
     parsed: list[ParsedRow] = []
     for sheet_row, row in enumerate(rows[1:], start=2):
-        if all(_is_blank(v) for v in row):
+        # The API omits trailing empty cells (D10); extra columns never count (spec §2).
+        cells = {h: row[i] if i < len(row) else "" for h, i in index.items()}
+        if all(_is_blank(v) for v in cells.values()):
             continue
-        cells = {}
-        for spec in COLUMNS[tab]:
-            i = index[spec.header]
-            cells[spec.header] = row[i] if i < len(row) else ""  # API omits trailing blanks
         parsed.append(ParsedRow(sheet_row, cells))
 
     if not parsed:
-        raise DataSourceError(ErrorCategory.EMPTY_TAB, f"The {tab} tab has no data rows.")
+        raise empty
     return ParsedTab(tab, headers, parsed)
 
 

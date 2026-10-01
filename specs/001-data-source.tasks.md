@@ -45,6 +45,9 @@ Each ID below refers to an acceptance criterion in spec §10, in the order it ap
 | AC-23 | Unset `SHEET_ID` raises `config`, naming the variable only |
 | AC-24 | Auth and API failures raise `auth` and `unreachable`, with no secrets and no stack trace |
 | AC-25 | A header-only tab raises `empty_tab` |
+| AC-26 | Two `Status` columns in Orders raise `duplicate_column`, naming `Orders` and `Status` |
+| AC-27 | A completely empty tab (no header row) raises `empty_tab` |
+| AC-28 | A row with values only in extra columns is skipped, not reported |
 | MANUAL | The real sheet loads 1,000 / 10 / 150 rows with 0 dropped |
 
 Planning decisions D1–D4 are listed in plan §8.
@@ -85,6 +88,7 @@ Planning decisions D1–D4 are listed in plan §8.
     - AC-15 (extra columns are ignored);
     - AC-20;
     - AC-25;
+    - AC-26, AC-27, AC-28 (added during T5);
     - D2 (a blank calculated cell is not a rule break).
 
 - [ ] **T6. Validation: Products and Customers** (`validation.py`)
@@ -125,7 +129,7 @@ Planning decisions D1–D4 are listed in plan §8.
   - `to_frames` handles the snake_case rename, column order and dtypes.
   - The fetch is called exactly once for each load.
   - All acceptance criteria are tested end-to-end in `test_loader.py` through `FakeSheetsClient`.
-  - *Covers (end-to-end):* AC-01 to AC-22, and AC-25.
+  - *Covers (end-to-end):* AC-01 to AC-22, and AC-25 to AC-28.
 
 - [ ] **T10. Google Sheets adapter** (`sheets_client.py`)
   - `GspreadSheetsClient`:
@@ -144,7 +148,7 @@ Planning decisions D1–D4 are listed in plan §8.
   - Confirm 1,000 / 10 / 150 rows with 0 dropped, and that the real headers match the schema.
   - If anything differs, stop and raise it; don't change the schema.
   - Record the result below. Tick the acceptance criteria in spec §10.
-  - *Covers:* MANUAL. Final check of AC-01 to AC-25 (full `pytest` run and `ruff check` clean).
+  - *Covers:* MANUAL. Final check of AC-01 to AC-28 (full `pytest` run and `ruff check` clean).
 
 ## Manual check result
 

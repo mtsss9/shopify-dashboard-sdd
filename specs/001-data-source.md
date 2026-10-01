@@ -25,6 +25,7 @@ The loader is pure Python with no Streamlit imports (see CLAUDE.md). Displaying 
 Row 1 of each tab is the header, and data starts on row 2. The number of rows is not fixed.
 
 - Rows that are completely blank are skipped silently. They are not reported and do not count towards any total.
+- A row counts as blank when every column listed in §4–6 is blank. Values in extra columns do not count, so a row with values only in extra columns is skipped silently too.
 - Data ends at the last non-blank row.
 
 ## 3. Reading values
@@ -38,6 +39,8 @@ Row 1 of each tab is the header, and data starts on row 2. The number of rows is
 - Money columns are stored as `float64`. Money comparisons use a tolerance of 0.01 CAD (1 cent).
 - Integer columns must hold whole numbers (`2.5` breaks the rule).
 - A text value in a number or date column breaks the rule (e.g. the text `"45"` in `Quantity`).
+- A number in a text column is read as text (e.g. a Product Name of `1984`). ID format rules still apply, so `1001` in `Order ID` breaks the rule.
+- A date value that includes a time keeps only the date.
 
 ### 3.1 Calculated columns
 
@@ -119,7 +122,10 @@ The loader raises a `DataSourceError` that has a category and a message. It does
 | `unreachable` | The API call fails or times out | nothing specific |
 | `missing_tab` | A tab is missing | the tab |
 | `missing_column` | A required column is missing or renamed | the tab and the column |
-| `empty_tab` | A tab has no data rows after the header | the tab |
+| `duplicate_column` | A column listed in §4–6 appears more than once in a tab, after trimming. Repeated extra or blank headers are ignored. | the tab and the column |
+| `empty_tab` | A tab has no data rows after the header, or is completely empty (no header row) | the tab |
+
+Structure checks run per tab, in §7 tab order, in this order: completely empty (`empty_tab`), then `missing_column`, then `duplicate_column`, then no data rows (`empty_tab`).
 
 Messages never contain:
 - the value of `SHEET_ID`,
@@ -246,6 +252,9 @@ All criteria except the manual check are pytest tests that use fixtures in `test
 - [ ] Unset `SHEET_ID` raises `config`, and the message contains the text `SHEET_ID` but no sheet ID value.
 - [ ] Auth and API failures raise `auth` and `unreachable`. The messages contain no sheet ID, no credentials path and no stack trace.
 - [ ] A header-only tab raises `empty_tab`.
+- [ ] A fixture with two `Status` columns in Orders raises `duplicate_column`, naming `Orders` and `Status`.
+- [ ] A completely empty tab (no header row) raises `empty_tab`, naming the tab.
+- [ ] A row with values only in extra columns is skipped and not reported, and later rows keep their real sheet row numbers.
 
 ## 11. Resolved questions
 

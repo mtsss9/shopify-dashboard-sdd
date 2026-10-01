@@ -28,6 +28,7 @@ When the loader raises a `DataSourceError`, the dashboard shows an error screen 
 | `unreachable` | "Could not reach the Google Sheet. Try Refresh data." |
 | `missing_tab` | "The sheet is missing the `<tab>` tab." |
 | `missing_column` | "The `<tab>` tab is missing the `<column>` column." |
+| `duplicate_column` | "The `<tab>` tab has more than one `<column>` column." |
 | `empty_tab` | "The `<tab>` tab has no data." |
 
 The "Refresh data" button stays visible on the error screen.
