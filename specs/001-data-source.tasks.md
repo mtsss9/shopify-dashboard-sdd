@@ -74,7 +74,7 @@ Planning decisions D1–D4 are listed in plan §8.
     - AC-21 (threshold at 6 vs 5 of 100, unit level);
     - AC-22 (masking formats; no full email in `repr(report)`).
 
-- [ ] **T5. Parsing** (`parsing.py`)
+- [x] **T5. Parsing** (`parsing.py`)
   - Tab and column structure checks, header trimming, blank-row skipping, sheet row numbers and `coerce_cell` for every column type.
   - *Covers:*
     - AC-01 (a blank Discount becomes 0; the number 0 stays 0);
