@@ -119,7 +119,7 @@ Planning decisions D1–D4 are listed in plan §8.
     - D2 (a blank sheet Line Total gives no warning);
     - AC-29 (Orders side: unreadable Line Total, Product Name, Category).
 
-- [ ] **T8. Calculations** (`calculations.py`)
+- [x] **T8. Calculations** (`calculations.py`)
   - `line_total`, `margin_pct` (0 when Price is 0), `enrich_orders`, `product_stats` and `customer_stats`. Refunded orders are excluded, and items with no orders get 0.
   - *Covers:*
     - AC-12 (the recomputed Line Total);

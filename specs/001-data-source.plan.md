@@ -151,8 +151,11 @@ Each function returns the valid rows plus report entries. A row that breaks seve
 - `line_total(quantity, unit_price, discount) -> float`
 - `margin_pct(price, unit_cost) -> float`: returns 0 when price is 0.
 - `enrich_orders(orders, products) -> orders`: fills in Product Name and Category by SKU and the recomputed Line Total.
-- `product_stats(orders) -> units_sold, revenue per SKU`: uses non-Refunded orders only. SKUs with no orders get 0.
-- `customer_stats(orders) -> order_count, total_spent per customer`: uses non-Refunded orders only. Customers with no orders get 0.
+- `product_stats(orders, products) -> dict[SKU, ProductStats(units_sold, revenue)]`: uses non-Refunded orders only. Every product is present; SKUs with no orders get 0 (decision D21).
+- `customer_stats(orders, customers) -> dict[Customer ID, CustomerStats(order_count, total_spent)]`: uses non-Refunded orders only. Every customer is present; customers with no orders get 0 (decision D21).
+- `enrich_products(products, orders) -> products`: sets Margin %, Units Sold and Revenue (CAD) (decision D22).
+- `enrich_customers(customers, orders) -> customers`: sets Orders and Total Spent (CAD) (decision D22).
+- Revenue always comes from the recomputed Line Total. Every function returns new rows and leaves its input unchanged.
 
 ### loader.py
 - `LoadResult` (dataclass): `orders`, `products`, `customers` (DataFrames) and `report`.
@@ -310,3 +313,8 @@ The next SDD step is to turn these steps into `specs/001-data-source.tasks.md`, 
 - **D18. The unreadable-cell definition is confirmed** as written in spec §3.1: Sheets error values in any calculated column, and wrongly typed values in number calculated columns only.
 - **D19. Cross-check warnings only for kept rows.** Line Total mismatch and Order Date before Customer Since are skipped for dropped rows; unreadable-cell warnings are recorded for every row (spec §7.2).
 - **D20. Reason texts are fixed** by the table in spec §7.3; tests assert them exactly.
+
+### Changes approved after T8 (2026-10-01)
+
+- **D21. `product_stats` and `customer_stats` also take the product or customer list,** so items with no counted orders appear with 0. The orders alone cannot list them.
+- **D22. `enrich_products` and `enrich_customers` were added** to write the recomputed calculated columns into the product and customer rows, keeping that logic in `calculations.py` rather than the loader.
