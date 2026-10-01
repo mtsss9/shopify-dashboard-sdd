@@ -318,3 +318,7 @@ The next SDD step is to turn these steps into `specs/001-data-source.tasks.md`, 
 
 - **D21. `product_stats` and `customer_stats` also take the product or customer list,** so items with no counted orders appear with 0. The orders alone cannot list them.
 - **D22. `enrich_products` and `enrich_customers` were added** to write the recomputed calculated columns into the product and customer rows, keeping that logic in `calculations.py` rather than the loader.
+
+### Changes approved after T9 (2026-10-01)
+
+- **D23. `sheets_client.py` was created in T9 with only the `SheetsClient` protocol,** because `loader.py` needs it for type hints. `GspreadSheetsClient` is added in T10. Until then, `load_data()` without a client checks the environment variables, then fails because the adapter does not exist; every T9 test passes a fake client.

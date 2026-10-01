@@ -127,7 +127,7 @@ Planning decisions D1–D4 are listed in plan §8.
     - AC-19;
     - D3 (the lookup overrides the sheet's Product Name and Category).
 
-- [ ] **T9. Loader** (`loader.py`, `__init__.py`)
+- [x] **T9. Loader** (`loader.py`, `__init__.py`)
   - `load_data(client, today)` and `LoadResult`.
   - `to_frames` handles the snake_case rename, column order and dtypes.
   - The fetch is called exactly once for each load.
