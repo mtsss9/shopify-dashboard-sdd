@@ -41,7 +41,13 @@ As spec 001 §7.1 requires, messages never show the `SHEET_ID` value or the cred
 - Warnings (severity `warning`) are counted separately from dropped rows and never trigger the banner.
 - The dashboard never displays full customer emails.
 
-## 5. Acceptance criteria
+## 5. Money display
+
+- Money values are shown in CAD with exactly 2 decimals (e.g. `$1,234.50`).
+- Rounding to 2 decimals happens **only at display time**. The spec 001 loader does not round; it keeps full precision and compares money with a 1-cent tolerance (spec 001 §3).
+- Margin % is not money. It is shown as a percentage, and this rule does not apply to it.
+
+## 6. Acceptance criteria
 
 All criteria use a mocked loader and a controllable clock.
 
@@ -53,3 +59,4 @@ All criteria use a mocked loader and a controllable clock.
 - [ ] The Refresh button is visible on the error screen.
 - [ ] A report with a tab where `over_threshold = true` shows the banner. With none, no banner is shown.
 - [ ] Dropped-row counts per tab match the report.
+- [ ] A money value of `1234.5` is displayed as `$1,234.50` and `69.5` as `$69.50`, while the underlying data is unchanged.

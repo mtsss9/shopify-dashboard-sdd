@@ -123,10 +123,10 @@ Every function has type hints and a docstring naming the spec section, as CLAUDE
 ### report.py
 - `Severity` (str Enum): `dropped`, `warning`.
 - `ReportEntry` (frozen dataclass): `tab`, `row`, `column` (sheet header), `value`, `reason`, `severity`.
-- `TabSummary`: `rows_read`, `rows_dropped`, `drop_rate`, and a property `over_threshold` (`drop_rate > 0.05`).
+- `TabSummary`: fields `rows_read` and `rows_dropped`; properties `drop_rate` (rows_dropped ÷ rows_read, 0 when rows_read is 0) and `over_threshold` (`drop_rate > 0.05`).
 - `ValidationReport`: `entries`, `summaries: dict[tab, TabSummary]`, and helpers `dropped()` and `warnings()`.
 - `mask_email(value: object) -> str`: gives first character + `***` + `@domain`. Without an `@` it gives first character + `***`.
-- `make_entry(...)`: builds an entry and **always** passes Email values through `mask_email`, so no other code path can store a full email.
+- `make_entry(...)`: builds an entry. Masking happens in `ReportEntry.__post_init__` for the `Email` column, so even direct construction can never store a full email. `mask_email` is idempotent (edge cases in spec §7.3).
 
 ### validation.py
 Each function returns the valid rows plus report entries. A row that breaks several rules gets one entry per rule and is dropped once.
@@ -274,3 +274,9 @@ The next SDD step is to turn these steps into `specs/001-data-source.tasks.md`, 
 
 - **D5. The column type for decimals is named `decimal`,** not `money`, to match the spec's type names. It covers the money columns and Margin %.
 - **D6. Error tests live in `tests/test_errors.py`,** added to the §2 file list.
+
+### Changes approved during T4 (2026-09-30)
+
+- **D7. `drop_rate` is a computed property** of `TabSummary`, not a stored field, so it can never disagree with the counts.
+- **D8. Email masking lives in `ReportEntry`** and is idempotent. The edge cases are recorded in spec §7.3.
+- **D9. No rounding in the loader.** Money keeps full precision; the 0.01 tolerance applies only to money comparisons (the Discount limit and the Line Total check). Margin % is never rounded or compared with a tolerance. Display rounding to 2 decimals belongs to the UI (spec 003 §5).

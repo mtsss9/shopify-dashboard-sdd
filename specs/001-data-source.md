@@ -149,7 +149,14 @@ The report is a list of entries, each with these fields:
 - `reason`
 - `severity`: `dropped` or `warning`
 
-Email values are masked in the report as the first character, `***`, then `@domain` (e.g. `j***@example.com`). The same masking applies anywhere an email is logged.
+Email values are masked in the report as the first character, `***`, then `@domain` (e.g. `j***@example.com`). The same masking applies anywhere an email is logged. Edge cases:
+- The value is trimmed before masking.
+- With no `@`, only the first character is kept: `jane.example.com` → `j***`.
+- With more than one `@`, the domain is the part after the last `@`: `a@b@c.com` → `a***@c.com`.
+- An empty part before the `@` gives `***@domain`: `@example.com` → `***@example.com`.
+- Non-text values are masked the same way: `12345` → `1***`.
+- A blank value stays blank (there is nothing to hide; the reason says it is required).
+- Masking an already-masked value changes nothing, so an entry can never be masked twice.
 
 For each tab, the report also gives:
 - the number of data rows read,

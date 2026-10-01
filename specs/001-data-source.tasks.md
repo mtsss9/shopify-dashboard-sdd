@@ -68,7 +68,7 @@ Planning decisions D1–D4 are listed in plan §8.
   - `load_config` reads the two environment variables. `Config.__repr__` hides both values.
   - *Covers:* AC-23.
 
-- [ ] **T4. Validation report** (`report.py`)
+- [x] **T4. Validation report** (`report.py`)
   - `ReportEntry`, `TabSummary`, `ValidationReport`, `mask_email` and `make_entry`. Every Email value passes through the mask.
   - *Covers:*
     - AC-21 (threshold at 6 vs 5 of 100, unit level);
