@@ -49,6 +49,7 @@ Each ID below refers to an acceptance criterion in spec §10, in the order it ap
 | AC-27 | A completely empty tab (no header row) raises `empty_tab` |
 | AC-28 | A row with values only in extra columns is skipped, not reported |
 | AC-29 | An unreadable calculated cell keeps its row with a `calculated value unreadable` warning; no mismatch warning; not counted as dropped |
+| AC-30 | A config value equal to its `.env.example` placeholder raises `config`; a `.env.example` file is never read |
 | MANUAL | The real sheet loads 1,000 / 10 / 150 rows with 0 dropped |
 
 Planning decisions D1–D4 are listed in plan §8.
@@ -70,7 +71,7 @@ Planning decisions D1–D4 are listed in plan §8.
 
 - [x] **T3. Config** (`config.py`)
   - `load_config` reads the two environment variables. `Config.__repr__` hides both values.
-  - *Covers:* AC-23.
+  - *Covers:* AC-23; AC-30 (added after T11, plan D26).
 
 - [x] **T4. Validation report** (`report.py`)
   - `ReportEntry`, `TabSummary`, `ValidationReport`, `mask_email` and `make_entry`. Every Email value passes through the mask.
@@ -151,7 +152,7 @@ Planning decisions D1–D4 are listed in plan §8.
   - Confirm 1,000 / 10 / 150 rows with 0 dropped, and that the real headers match the schema.
   - If anything differs, stop and raise it; don't change the schema.
   - Record the result below. Tick the acceptance criteria in spec §10.
-  - *Covers:* MANUAL. Final check of AC-01 to AC-29 (full `pytest` run and `ruff check` clean).
+  - *Covers:* MANUAL. Final check of AC-01 to AC-30 (full `pytest` run and `ruff check` clean).
 
 ## Manual check result
 

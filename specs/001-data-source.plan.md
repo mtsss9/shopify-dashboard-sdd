@@ -87,7 +87,7 @@ Every function has type hints and a docstring naming the spec section, as CLAUDE
 
 ### config.py
 - `Config` (frozen dataclass): `sheet_id`, `credentials_path`. `__repr__` hides both values so they can never leak into logs.
-- `load_config(env: Mapping[str, str] = os.environ) -> Config`: raises `config` naming the first unset or blank variable. The message holds the variable **name** only.
+- `load_config(env: Mapping[str, str] = os.environ) -> Config`: raises `config` naming the first unset, blank or placeholder variable (decision D26). The message holds the variable **name** only. It reads only the environment, never a file.
 
 ### sheets_client.py
 - `RawTabs = dict[str, list[list[object]]]`, imported from `parsing.py` (decision D11).
@@ -328,3 +328,7 @@ The next SDD step is to turn these steps into `specs/001-data-source.tasks.md`, 
 
 - **D24. Spec §8 reworded** to "one metadata lookup plus exactly one batch of value reads". The lookup finds which tabs exist, so a missing tab gives a clean `missing_tab` instead of a failed batch.
 - **D25. HTTP 401 and 403 map to `auth`** (spec §7.1), so a sheet not shared with the service account shows "Check the service account" rather than "Try Refresh data". 404 and other API errors stay `unreachable`.
+
+### Changes approved after T11 (2026-10-01)
+
+- **D26. Placeholder values are rejected.** `load_config` raises `config` when a variable still equals its placeholder from the committed env template (`SHEET_ID=your-google-sheet-id`, `GOOGLE_APPLICATION_CREDENTIALS=path/to/service-account-key.json`). This catches an env file copied from the template and never filled in. The placeholders are constants in `config.py`, and a test keeps them equal to the template. No file under `src/` imports a dotenv library or names the template file; configuration comes only from the process environment (spec §7.1, AC-30; spec 003 §3).

@@ -119,13 +119,15 @@ The loader raises a `DataSourceError` that has a category and a message. It does
 
 | Category | When | Message must name |
 |---|---|---|
-| `config` | `SHEET_ID` or `GOOGLE_APPLICATION_CREDENTIALS` is unset | the variable **name** |
+| `config` | `SHEET_ID` or `GOOGLE_APPLICATION_CREDENTIALS` is unset, blank, or still holds its placeholder value from the `.env.example` template | the variable **name** |
 | `auth` | Authentication fails, or the service account has no access to the sheet (HTTP 401 or 403) | nothing specific |
 | `unreachable` | The API call fails for any other reason (including HTTP 404, e.g. a wrong sheet ID) or times out | nothing specific |
 | `missing_tab` | A tab is missing | the tab |
 | `missing_column` | A required column is missing or renamed | the tab and the column |
 | `duplicate_column` | A column listed in §4–6 appears more than once in a tab, after trimming. Repeated extra or blank headers are ignored. | the tab and the column |
 | `empty_tab` | A tab has no data rows after the header, or is completely empty (no header row) | the tab |
+
+Configuration comes only from the process environment. The loader never reads any file for configuration; `.env.example` is a template and is never read by the app.
 
 Structure checks run per tab, in §7 tab order, in this order: completely empty (`empty_tab`), then `missing_column`, then `duplicate_column`, then no data rows (`empty_tab`).
 
@@ -285,6 +287,7 @@ All criteria except the manual check are pytest tests that use fixtures in `test
 - [x] A completely empty tab (no header row) raises `empty_tab`, naming the tab.
 - [x] A row with values only in extra columns is skipped and not reported, and later rows keep their real sheet row numbers.
 - [x] An unreadable calculated cell (`#N/A` in Orders `Product Name`, text in Products `Units Sold`, `#VALUE!` in Orders `Line Total (CAD)`) keeps its row and records one `warning` with reason `calculated value unreadable`. The Line Total case records no mismatch warning, and none of these count towards the drop rate.
+- [x] A `SHEET_ID` or `GOOGLE_APPLICATION_CREDENTIALS` equal to its `.env.example` placeholder raises `config` naming the variable, with no value in the message; a `.env.example` file in the working directory is never read.
 
 ## 11. Resolved questions
 

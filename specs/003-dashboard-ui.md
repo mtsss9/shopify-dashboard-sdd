@@ -23,7 +23,7 @@ When the loader raises a `DataSourceError`, the dashboard shows an error screen 
 
 | Category | Message shown |
 |---|---|
-| `config` | "Configuration missing: `<variable name>` is not set." |
+| `config` | "Configuration missing: `<variable name>` is not set." When the variable still holds its template placeholder: "Configuration incomplete: `<variable name>` still holds the placeholder from `.env.example`." |
 | `auth` | "Could not sign in to Google Sheets. Check the service account." |
 | `unreachable` | "Could not reach the Google Sheet. Try Refresh data." |
 | `missing_tab` | "The sheet is missing the `<tab>` tab." |
