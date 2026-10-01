@@ -120,8 +120,8 @@ The loader raises a `DataSourceError` that has a category and a message. It does
 | Category | When | Message must name |
 |---|---|---|
 | `config` | `SHEET_ID` or `GOOGLE_APPLICATION_CREDENTIALS` is unset | the variable **name** |
-| `auth` | Authentication fails | nothing specific |
-| `unreachable` | The API call fails or times out | nothing specific |
+| `auth` | Authentication fails, or the service account has no access to the sheet (HTTP 401 or 403) | nothing specific |
+| `unreachable` | The API call fails for any other reason (including HTTP 404, e.g. a wrong sheet ID) or times out | nothing specific |
 | `missing_tab` | A tab is missing | the tab |
 | `missing_column` | A required column is missing or renamed | the tab and the column |
 | `duplicate_column` | A column listed in §4–6 appears more than once in a tab, after trimming. Repeated extra or blank headers are ignored. | the tab and the column |
@@ -206,7 +206,7 @@ For each tab, the report also gives:
 
 ## 8. Refresh and caching
 
-- A single call to the loader reads all three tabs and makes exactly one batch of API reads.
+- A single call to the loader reads all three tabs with one metadata lookup (to find which tabs exist) plus exactly one batch of value reads.
 - The loader itself does not cache. The 5-minute cache and the "Refresh data" button are defined in `specs/003-dashboard-ui.md`.
 - A failed load is never cached.
 

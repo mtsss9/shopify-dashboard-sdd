@@ -10,7 +10,7 @@ from shopify_dashboard.config import load_config
 from shopify_dashboard.parsing import ParsedRow, parse_tabs
 from shopify_dashboard.report import ValidationReport
 from shopify_dashboard.schema import COLUMNS, TABS
-from shopify_dashboard.sheets_client import SheetsClient
+from shopify_dashboard.sheets_client import GspreadSheetsClient, SheetsClient
 from shopify_dashboard.validation import validate_all
 
 DTYPES = {
@@ -41,10 +41,7 @@ def load_data(client: SheetsClient | None = None, today: date | None = None) -> 
     Raises ``DataSourceError`` and never returns partial data.
     """
     if client is None:
-        config = load_config()
-        from shopify_dashboard.sheets_client import GspreadSheetsClient  # added in T10
-
-        client = GspreadSheetsClient(config)
+        client = GspreadSheetsClient(load_config())
     today = date.today() if today is None else today
 
     tabs = parse_tabs(client.fetch_tabs(TABS))

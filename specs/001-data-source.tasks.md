@@ -134,7 +134,7 @@ Planning decisions D1–D4 are listed in plan §8.
   - All acceptance criteria are tested end-to-end in `test_loader.py` through `FakeSheetsClient`.
   - *Covers (end-to-end):* AC-01 to AC-22, and AC-25 to AC-29.
 
-- [ ] **T10. Google Sheets adapter** (`sheets_client.py`)
+- [x] **T10. Google Sheets adapter** (`sheets_client.py`)
   - `GspreadSheetsClient`:
     - one `batch_get`;
     - unformatted values and serial-number dates;

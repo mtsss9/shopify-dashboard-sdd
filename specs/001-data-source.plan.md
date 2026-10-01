@@ -98,9 +98,10 @@ Every function has type hints and a docstring naming the spec section, as CLAUDE
     - requests `value_render_option=UNFORMATTED_VALUE` and `date_time_render_option=SERIAL_NUMBER` (§3);
     - returns only the tabs that exist.
   - Exception mapping:
-    - auth or credential-file errors become `auth`;
-    - `APIError`, network errors and timeouts become `unreachable`;
-    - the original exception is chained with `from None`, so no traceback text or IDs reach the message.
+    - credential-file errors, token refresh failures and `APIError` with HTTP 401 or 403 become `auth` (decision D25);
+    - any other `APIError` (including 404), network errors and timeouts become `unreachable`;
+    - the original exception is dropped with `from None`, so no traceback text or IDs reach the message.
+  - Requests: one metadata lookup for tab titles, then one `values_batch_get` (decision D24).
   - This is the only module that imports `gspread` or `google.*`.
 
 ### parsing.py
@@ -322,3 +323,8 @@ The next SDD step is to turn these steps into `specs/001-data-source.tasks.md`, 
 ### Changes approved after T9 (2026-10-01)
 
 - **D23. `sheets_client.py` was created in T9 with only the `SheetsClient` protocol,** because `loader.py` needs it for type hints. `GspreadSheetsClient` is added in T10. Until then, `load_data()` without a client checks the environment variables, then fails because the adapter does not exist; every T9 test passes a fake client.
+
+### Changes approved after T10 (2026-10-01)
+
+- **D24. Spec §8 reworded** to "one metadata lookup plus exactly one batch of value reads". The lookup finds which tabs exist, so a missing tab gives a clean `missing_tab` instead of a failed batch.
+- **D25. HTTP 401 and 403 map to `auth`** (spec §7.1), so a sheet not shared with the service account shows "Check the service account" rather than "Try Refresh data". 404 and other API errors stay `unreachable`.
