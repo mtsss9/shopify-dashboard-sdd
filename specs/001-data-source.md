@@ -256,35 +256,35 @@ All criteria except the manual check are pytest tests that use fixtures in `test
 
 **Manual check (not pytest):** with the real sheet, all 1,000 orders, 10 products and 150 customers load with zero dropped rows. These counts are a one-off check, not a runtime rule.
 
-- [ ] `Discount (CAD)` is numeric everywhere. A `-` display and a blank cell both load as `0`.
-- [ ] `Order Date` and `Customer Since` load as dates. `2026-02-30` is dropped and reported.
-- [ ] A fixture with a missing `Status` column raises `missing_column`, naming `Orders` and `Status`.
-- [ ] A fixture with a header of ` Status ` (extra spaces) loads normally.
-- [ ] A fixture with one bad Status value (e.g. `Shipped`) drops exactly that row and reports it.
-- [ ] A fixture with `fulfilled` (lowercase) drops that row.
-- [ ] A fixture order with a SKU not in Products is dropped, with reason `SKU not found`.
-- [ ] A fixture order with a Customer ID not in Customers is dropped, with reason `Customer not found`.
-- [ ] A fixture Products row that breaks a rule is dropped, and every order with that SKU is dropped too.
-- [ ] Two orders with the same Order ID are both dropped and both reported.
-- [ ] Quantity `0`, Quantity `2.5` and a Discount greater than Quantity × Unit Price are each dropped.
-- [ ] A Line Total that is 0.05 off is kept, reported as a `warning`, and the output holds the recomputed value.
-- [ ] A Line Total that is 0.005 off is not reported.
-- [ ] Recomputed Units Sold, Revenue, Orders and Total Spent exclude Refunded orders and match the fixture's sheet values.
-- [ ] Extra columns are ignored and do not appear in the output.
-- [ ] Output DataFrames have exactly the snake_case columns in §9, in that order.
-- [ ] With today fixed at `2026-06-01`, an order dated `2026-06-02` is dropped and reported; one dated `2026-06-01` loads.
-- [ ] An order dated before its customer's `Customer Since` is kept and reported as a `warning`.
-- [ ] Margin % for Price 20 and Unit Cost 5 is `0.75`.
-- [ ] Blank rows in the middle of a tab are skipped and not reported.
-- [ ] A tab with 6 dropped rows out of 100 has `over_threshold = true`. With 5 out of 100 it is false.
-- [ ] An invalid Customers email appears in the report masked, e.g. `j***@example.com`.
-- [ ] Unset `SHEET_ID` raises `config`, and the message contains the text `SHEET_ID` but no sheet ID value.
-- [ ] Auth and API failures raise `auth` and `unreachable`. The messages contain no sheet ID, no credentials path and no stack trace.
-- [ ] A header-only tab raises `empty_tab`.
-- [ ] A fixture with two `Status` columns in Orders raises `duplicate_column`, naming `Orders` and `Status`.
-- [ ] A completely empty tab (no header row) raises `empty_tab`, naming the tab.
-- [ ] A row with values only in extra columns is skipped and not reported, and later rows keep their real sheet row numbers.
-- [ ] An unreadable calculated cell (`#N/A` in Orders `Product Name`, text in Products `Units Sold`, `#VALUE!` in Orders `Line Total (CAD)`) keeps its row and records one `warning` with reason `calculated value unreadable`. The Line Total case records no mismatch warning, and none of these count towards the drop rate.
+- [x] `Discount (CAD)` is numeric everywhere. A `-` display and a blank cell both load as `0`.
+- [x] `Order Date` and `Customer Since` load as dates. `2026-02-30` is dropped and reported.
+- [x] A fixture with a missing `Status` column raises `missing_column`, naming `Orders` and `Status`.
+- [x] A fixture with a header of ` Status ` (extra spaces) loads normally.
+- [x] A fixture with one bad Status value (e.g. `Shipped`) drops exactly that row and reports it.
+- [x] A fixture with `fulfilled` (lowercase) drops that row.
+- [x] A fixture order with a SKU not in Products is dropped, with reason `SKU not found`.
+- [x] A fixture order with a Customer ID not in Customers is dropped, with reason `Customer not found`.
+- [x] A fixture Products row that breaks a rule is dropped, and every order with that SKU is dropped too.
+- [x] Two orders with the same Order ID are both dropped and both reported.
+- [x] Quantity `0`, Quantity `2.5` and a Discount greater than Quantity × Unit Price are each dropped.
+- [x] A Line Total that is 0.05 off is kept, reported as a `warning`, and the output holds the recomputed value.
+- [x] A Line Total that is 0.005 off is not reported.
+- [x] Recomputed Units Sold, Revenue, Orders and Total Spent exclude Refunded orders and match the fixture's sheet values.
+- [x] Extra columns are ignored and do not appear in the output.
+- [x] Output DataFrames have exactly the snake_case columns in §9, in that order.
+- [x] With today fixed at `2026-06-01`, an order dated `2026-06-02` is dropped and reported; one dated `2026-06-01` loads.
+- [x] An order dated before its customer's `Customer Since` is kept and reported as a `warning`.
+- [x] Margin % for Price 20 and Unit Cost 5 is `0.75`.
+- [x] Blank rows in the middle of a tab are skipped and not reported.
+- [x] A tab with 6 dropped rows out of 100 has `over_threshold = true`. With 5 out of 100 it is false.
+- [x] An invalid Customers email appears in the report masked, e.g. `j***@example.com`.
+- [x] Unset `SHEET_ID` raises `config`, and the message contains the text `SHEET_ID` but no sheet ID value.
+- [x] Auth and API failures raise `auth` and `unreachable`. The messages contain no sheet ID, no credentials path and no stack trace.
+- [x] A header-only tab raises `empty_tab`.
+- [x] A fixture with two `Status` columns in Orders raises `duplicate_column`, naming `Orders` and `Status`.
+- [x] A completely empty tab (no header row) raises `empty_tab`, naming the tab.
+- [x] A row with values only in extra columns is skipped and not reported, and later rows keep their real sheet row numbers.
+- [x] An unreadable calculated cell (`#N/A` in Orders `Product Name`, text in Products `Units Sold`, `#VALUE!` in Orders `Line Total (CAD)`) keeps its row and records one `warning` with reason `calculated value unreadable`. The Line Total case records no mismatch warning, and none of these count towards the drop rate.
 
 ## 11. Resolved questions
 

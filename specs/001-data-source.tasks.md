@@ -146,7 +146,7 @@ Planning decisions D1–D4 are listed in plan §8.
     - AC-01 (asserts the unformatted render option, which is what turns `-` into `0`);
     - D4.
 
-- [ ] **T11. Manual check and sign-off**
+- [x] **T11. Manual check and sign-off**
   - With `.env` set locally, run `load_data()` against the real sheet once.
   - Confirm 1,000 / 10 / 150 rows with 0 dropped, and that the real headers match the schema.
   - If anything differs, stop and raise it; don't change the schema.
@@ -155,4 +155,8 @@ Planning decisions D1–D4 are listed in plan §8.
 
 ## Manual check result
 
-*(Fill in during T11: date, row counts, dropped count, any notes. Do not paste the sheet ID or any customer data.)*
+- **Date:** 2026-10-01. Run by the user in their own PowerShell terminal, with configuration loaded from their local env file. Claude does not read that file.
+- **Rows read / dropped:** Orders 1,000 / 0, Products 10 / 0, Customers 150 / 0. Warnings: 0.
+- **Headers:** the load finished with no `missing_tab`, `missing_column` or `duplicate_column` error, so the real tabs and headers match the schema (spec §4–6, §9).
+- **Automated check:** 303 tests passed; `ruff check` and `ruff format --check` clean (commit `0744502`).
+- **Note:** the first attempt used a 33-character Drive ID as `SHEET_ID` instead of the 44-character spreadsheet ID. The user corrected the value before the successful run. No code change was needed.
