@@ -304,3 +304,9 @@ The next SDD step is to turn these steps into `specs/001-data-source.tasks.md`, 
 
 - **D16. Unreadable calculated cells are warnings, not drops.** A Sheets error value in any calculated column, or a wrongly typed value in a number calculated column, keeps the row, is treated as missing for cross-checks, and records a `warning` with reason `calculated value unreadable` (spec §3.1, §7.2). Warnings never count towards the drop rate.
 - **D17. Repeated-header scope confirmed:** only spec columns are checked for `duplicate_column` (D14).
+
+### Changes approved after T7 (2026-10-01)
+
+- **D18. The unreadable-cell definition is confirmed** as written in spec §3.1: Sheets error values in any calculated column, and wrongly typed values in number calculated columns only.
+- **D19. Cross-check warnings only for kept rows.** Line Total mismatch and Order Date before Customer Since are skipped for dropped rows; unreadable-cell warnings are recorded for every row (spec §7.2).
+- **D20. Reason texts are fixed** by the table in spec §7.3; tests assert them exactly.

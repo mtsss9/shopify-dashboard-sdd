@@ -148,6 +148,8 @@ Messages never contain:
 
 A row that breaks several rules is recorded once for each rule it breaks, but it is dropped only once.
 
+Cross-check warnings (Line Total mismatch, Order Date before `Customer Since`) are recorded only for rows that are kept; a row that is already dropped gets no cross-check warnings. Unreadable calculated cell warnings (§3.1) come from the per-cell checks and are recorded for every row, kept or dropped. Duplicate-key rows get no other checks.
+
 ### 7.3 Validation report
 
 The report is a list of entries, each with these fields:
@@ -157,6 +159,30 @@ The report is a list of entries, each with these fields:
 - `value`
 - `reason`
 - `severity`: `dropped` or `warning`
+
+The `reason` field uses exactly these texts:
+
+| Reason | Severity | When |
+|---|---|---|
+| `required` | dropped | A required cell is blank (§3) |
+| `must be a number` | dropped | Text or a true/false value in a number column (§3) |
+| `must be a whole number` | dropped | A fraction in an integer column (§3) |
+| `must be a date (YYYY-MM-DD)` | dropped | A date cell that is neither a date value nor ISO text (§3) |
+| `not a real calendar date` | dropped | ISO text for a date that does not exist, e.g. `2026-02-30` (§3) |
+| `invalid format` | dropped | An ID that does not match its format (§4–6) |
+| `not an allowed value` | dropped | An enum value not in its list (§4–6) |
+| `must be greater than 0` | dropped | Price or Unit Price ≤ 0 |
+| `must be 0 or more` | dropped | Unit Cost, Inventory or Discount < 0 |
+| `must be 1 or more` | dropped | Quantity < 1 |
+| `must contain @` | dropped | An Email with no `@` |
+| `must not exceed Quantity × Unit Price` | dropped | Discount above Quantity × Unit Price by more than 0.01 |
+| `must not be after today` | dropped | An Order Date after today (§7.4) |
+| `SKU not found` | dropped | The SKU is not in the validated Products |
+| `Customer not found` | dropped | The Customer ID is not in the validated Customers |
+| `duplicate <key column>` | dropped | A unique key shared by several rows, e.g. `duplicate Order ID` |
+| `differs from Quantity × Unit Price − Discount` | warning | The sheet Line Total is more than 0.01 off |
+| `before the customer's Customer Since` | warning | Order Date earlier than the customer's `Customer Since` |
+| `calculated value unreadable` | warning | An unreadable calculated cell (§3.1) |
 
 Email values are masked in the report as the first character, `***`, then `@domain` (e.g. `j***@example.com`). The same masking applies anywhere an email is logged. Edge cases:
 - The value is trimmed before masking.

@@ -99,7 +99,7 @@ Planning decisions D1–D4 are listed in plan §8.
     - AC-22 (an invalid email is dropped and its report entry is masked);
     - AC-29 (Products and Customers calculated cells; added after T6, done in the T6 commit).
 
-- [ ] **T7. Validation: Orders and duplicates** (`validation.py`)
+- [x] **T7. Validation: Orders and duplicates** (`validation.py`)
   - `validate_orders`:
     - cell rules and Discount limits;
     - Order Date against `today`;
@@ -116,7 +116,8 @@ Planning decisions D1–D4 are listed in plan §8.
     - AC-13;
     - AC-17, AC-18;
     - D1 (duplicates are checked before other rules);
-    - D2 (a blank sheet Line Total gives no warning).
+    - D2 (a blank sheet Line Total gives no warning);
+    - AC-29 (Orders side: unreadable Line Total, Product Name, Category).
 
 - [ ] **T8. Calculations** (`calculations.py`)
   - `line_total`, `margin_pct` (0 when Price is 0), `enrich_orders`, `product_stats` and `customer_stats`. Refunded orders are excluded, and items with no orders get 0.
