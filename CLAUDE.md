@@ -58,6 +58,7 @@ Specs:
 - Configuration comes from the environment variables `SHEET_ID` and `GOOGLE_APPLICATION_CREDENTIALS`. Never hardcode it.
 - Never push the values of `SHEET_ID` or `GOOGLE_APPLICATION_CREDENTIALS` to GitHub. That includes commits, PRs, issues and comments.
 - Never log full customer emails.
+- If a hook blocks an action, stop and explain why the action is needed. Never rephrase, encode or otherwise work around a hook.
 
 ## Definition of done
 
