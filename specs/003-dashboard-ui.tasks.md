@@ -102,7 +102,7 @@ Planning decisions U1–U11 are listed in plan §8.
 
 ## Tasks
 
-- [ ] **T1. Display helpers** (`display.py`, `tests/test_display.py`)
+- [x] **T1. Display helpers** (`display.py`, `tests/test_display.py`)
   - `ERROR_HEADINGS` for every `ErrorCategory`, with a test that none is missing.
   - `MONEY_FORMAT = "$%,.2f"`, `PCT_FORMAT = "%.1f%%"`, `MONEY_COLUMNS` and `number_formats(tab)` (sheet header → format string) (U11).
   - `table_view(tab, df)`:
