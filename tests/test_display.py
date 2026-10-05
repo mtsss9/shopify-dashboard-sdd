@@ -176,6 +176,8 @@ def test_refunded_rows_kept(frames: dict[str, pd.DataFrame]) -> None:
     """Display drops no rows; Refunded orders reach the table (AC-25 is checked in the app, T6)."""
     shown = display.table_view("Orders", frames["Orders"])
     assert shown["Status"].tolist() == frames["Orders"]["status"].tolist()
+    refunded = shown.loc[shown["Status"] == "Refunded", "Order ID"].tolist()
+    assert refunded == ["#1004", "#1007"]
 
 
 def test_empty_frame() -> None:
