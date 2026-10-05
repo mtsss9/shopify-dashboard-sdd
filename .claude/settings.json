@@ -4,7 +4,7 @@
       {
         "matcher": "Read|Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell|Grep|Glob",
         "hooks": [
-          { "type": "command", "command": "python .claude/hooks/protect_secrets.py" }
+          { "type": "command", "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/protect_secrets.py\"" }
         ]
       }
     ],
@@ -12,7 +12,7 @@
       {
         "matcher": "Edit|Write|MultiEdit",
         "hooks": [
-          { "type": "command", "command": "python .claude/hooks/run_checks.py", "timeout": 120 }
+          { "type": "command", "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/run_checks.py\"", "timeout": 120 }
         ]
       }
     ]
