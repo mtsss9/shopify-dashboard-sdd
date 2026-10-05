@@ -19,7 +19,8 @@ from shopify_dashboard.display import (
     row_count_text,
     table_view,
 )
-from shopify_dashboard.quality import banner_messages
+from shopify_dashboard.quality import banner_messages, entries_frame, summary_frame
+from shopify_dashboard.report import ValidationReport
 
 TAB_LABELS = ["Orders", "Products", "Customers", "Data quality"]
 # Wide picker bounds, so a date kept across Refresh is never outside them. (A comment,
@@ -84,6 +85,16 @@ def _products_tab(df: pd.DataFrame) -> None:
     _show_table("Products", filtered)
 
 
+def _quality_tab(report: ValidationReport) -> None:
+    """Summary per tab, then every entry or "No problems found." Implements §6.5."""
+    st.dataframe(summary_frame(report), hide_index=True)
+    entries = entries_frame(report)
+    if entries is None:
+        st.markdown("No problems found.")
+    else:
+        st.dataframe(entries, hide_index=True)
+
+
 def _customers_tab(df: pd.DataFrame) -> None:
     """Customers: count, Province filter, table. Implements §6.3 and §6.4."""
     count = st.empty()
@@ -117,3 +128,5 @@ with products_tab:
     _products_tab(result.products)
 with customers_tab:
     _customers_tab(result.customers)
+with quality_tab:
+    _quality_tab(result.report)

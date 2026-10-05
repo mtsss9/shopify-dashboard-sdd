@@ -18,10 +18,10 @@ import streamlit as st
 from streamlit.testing.v1 import AppTest
 
 from conftest import TODAY, FakeSheetsClient, set_cell
-from shopify_dashboard import DataSourceError, LoadResult, display, load_data
+from shopify_dashboard import DataSourceError, LoadResult, display, load_data, quality
 from shopify_dashboard.config import CREDENTIALS_VAR, PLACEHOLDERS, SHEET_ID_VAR, load_config
 from shopify_dashboard.errors import ErrorCategory
-from shopify_dashboard.report import TabSummary, mask_email
+from shopify_dashboard.report import Severity, TabSummary, make_entry, mask_email
 
 APP = str(Path(__file__).parents[1] / "src" / "shopify_dashboard" / "app.py")
 TIMEOUT = 30
@@ -384,3 +384,101 @@ def test_loader_frames_unchanged_by_app(result: LoadResult) -> None:
     _rerun(at, loader)
     for name, frame in before.items():
         pd.testing.assert_frame_equal(getattr(result, name), frame)
+
+
+# Data quality tab (§6.5, T7) and scope (§6.1, AC-15)
+
+QUALITY_TAB = 3
+ALLOWED_ELEMENTS = {
+    "main",
+    "title",
+    "button",
+    "warning",
+    "tab_container",
+    "tab",
+    "markdown",
+    "date_input",
+    "multiselect",
+    "dataframe",
+}
+
+
+def _with_entries(result: LoadResult) -> LoadResult:
+    entries = [
+        make_entry("Customers", 4, "Email", "jane.doe@example.com", "invalid email"),
+        make_entry("Orders", 9, "Quantity", 2.5, "not a whole number"),
+        make_entry("Orders", 3, "Order Date", 45812, "in the future"),
+        make_entry("Orders", 5, "Line Total (CAD)", 99.95, "does not match", Severity.WARNING),
+        make_entry(
+            "Products", 2, "Margin %", "#REF!", "calculated value unreadable", Severity.WARNING
+        ),
+    ]
+    summaries = {
+        "Products": TabSummary(5, 0),
+        "Customers": TabSummary(4, 1),
+        "Orders": TabSummary(10, 2),
+    }
+    report = dataclasses.replace(result.report, entries=entries, summaries=summaries)
+    return dataclasses.replace(result, report=report)
+
+
+def _all_types(node: object) -> list[str]:
+    """Every element and block type under ``node``, depth first."""
+    types = [getattr(node, "type", "")]
+    for child in getattr(node, "children", {}).values():
+        types.extend(_all_types(child))
+    return types
+
+
+def test_quality_tab_summary_matches_report(result: LoadResult) -> None:
+    """AC-08, AC-39: the summary table shows the report's counts per tab."""
+    loaded = _with_entries(result)
+    at = _run(MagicMock(return_value=loaded))
+    summary = at.tabs[QUALITY_TAB].dataframe[0].value
+    pd.testing.assert_frame_equal(
+        summary.reset_index(drop=True), quality.summary_frame(loaded.report)
+    )
+    assert summary["Rows dropped"].tolist() == [2, 0, 1]
+    assert summary["Warnings"].tolist() == [1, 1, 0]
+
+
+def test_quality_tab_entries_table(result: LoadResult) -> None:
+    """AC-41, AC-42, AC-43, AC-45: every entry, values as stored, sorted, email masked."""
+    loaded = _with_entries(result)
+    at = _run(MagicMock(return_value=loaded))
+    tab = at.tabs[QUALITY_TAB]
+    assert [n.type for n in tab.children.values()] == ["dataframe", "dataframe"]
+    entries = tab.dataframe[1].value
+    pd.testing.assert_frame_equal(
+        entries.reset_index(drop=True), quality.entries_frame(loaded.report)
+    )
+    assert list(entries.columns) == ["tab", "row", "column", "value", "reason", "severity"]
+    assert entries["value"].tolist() == ["45812", "99.95", "2.5", "#REF!", "j***@example.com"]
+    assert "jane.doe@example.com" not in entries.to_string()
+    assert not at.exception
+
+
+def test_quality_tab_no_problems(result: LoadResult) -> None:
+    """AC-44: no entries shows "No problems found." instead of the table."""
+    at = _run(MagicMock(return_value=result))
+    tab = at.tabs[QUALITY_TAB]
+    assert [n.type for n in tab.children.values()] == ["dataframe", "markdown"]
+    assert tab.markdown[0].value == "No problems found."
+    assert tab.dataframe[0].value["Rows read"].tolist() == [8, 4, 3]
+
+
+def test_quality_tab_index_hidden(result: LoadResult) -> None:
+    at = _run(MagicMock(return_value=_with_entries(result)))
+    for frame in at.tabs[QUALITY_TAB].dataframe:
+        assert json.loads(frame.proto.columns)["_index"] == {"hidden": True}
+
+
+@pytest.mark.parametrize("over", [False, True])
+def test_no_kpi_total_or_chart(result: LoadResult, over: bool) -> None:
+    """AC-15: only the Phase 1 element types appear; no metric, chart or total."""
+    loaded = _with_entries(result)
+    if over:
+        loaded = _over_threshold(loaded)
+    at = _run(MagicMock(return_value=loaded))
+    assert set(_all_types(at.main)) - {""} <= ALLOWED_ELEMENTS
+    assert len(at.metric) == 0
