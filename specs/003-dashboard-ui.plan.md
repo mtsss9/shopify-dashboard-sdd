@@ -1,7 +1,7 @@
 # Plan 003: Dashboard UI, Phase 1 (Data Explorer)
 
 **Spec:** `specs/003-dashboard-ui.md` (Phase 1 Approved)
-**Status:** Draft, waiting for approval of the decisions in §8
+**Status:** Approved (2026-10-05). Decisions U1–U10 accepted, with U11 replacing text formatting of money and Margin % (§8).
 
 This plan says *how* Phase 1 of spec 003 will be built. Where the plan and the spec disagree, the spec wins. Phase 2 (KPIs and charts) is out of scope.
 
@@ -24,6 +24,7 @@ run.ps1 ──► sets env vars from .env (.env wins), PYTHONPATH=src
                           │     filters.options / default_date_range / prune_selection   → widgets
                           │     filters.filter_orders / filter_products / filter_customers
                           │     display.table_view(tab, filtered_df)       (§5, §6.3)
+                    │     display.number_formats(tab) → st.column_config.NumberColumn (§5, §6.3)
                           └─ Data quality tab:
                                 quality.summary_frame / entries_frame      (§6.5)
 ```
@@ -39,7 +40,7 @@ Only `app.py` imports Streamlit. None of the other new modules do.
 | File | Responsibility | Spec |
 |---|---|---|
 | `cache.py` | `LoadCache`: 5-minute result cache with an injectable clock; failures never stored; `clear()` | §1, §2 |
-| `display.py` | Money and percent formatting, sheet-header renaming, email masking for display, the per-category error headings, the row-count text | §3, §5, §6.3 |
+| `display.py` | Money and percent display formats (as plain format strings), sheet-header renaming, email masking for display, the per-category error headings, the row-count text | §3, §5, §6.3 |
 | `filters.py` | Filter functions, filter options, default date range, selection pruning | §6.4 |
 | `quality.py` | Over-threshold banner messages, the Data quality summary and entries tables | §4, §6.5 |
 | `app.py` | Streamlit script: layout, widgets, session state, calls the modules above | §1–4, §6 |
@@ -49,7 +50,7 @@ Only `app.py` imports Streamlit. None of the other new modules do.
 | File | What it covers |
 |---|---|
 | `test_cache.py` | TTL, refresh, failures not cached, with a fake clock and a counting fake loader |
-| `test_display.py` | Money/percent formatting, header names, masking, input unchanged, error headings |
+| `test_display.py` | Format strings per tab, money kept numeric, Margin % × 100, header names, masking, input unchanged, error headings |
 | `test_filters.py` | Every filter criterion in §7.2, on fixture DataFrames |
 | `test_quality.py` | Banner, summary, warning counts, entry order, "No problems found." case, raw values |
 | `test_app.py` | `streamlit.testing.v1.AppTest` runs of `app.py` with `load_data` patched |
@@ -77,11 +78,13 @@ Every function has type hints and a docstring naming the spec section, as CLAUDE
 
 ### display.py
 - `ERROR_HEADINGS: dict[ErrorCategory, str]`: the §3 table. A test checks that every `ErrorCategory` has a heading.
-- `format_money(value: float) -> str`: `1234.5` → `"$1,234.50"` (§5).
-- `format_pct(value: float) -> str`: `0.75` → `"75.0%"`, `0.6667` → `"66.7%"` (§6.3).
+- `MONEY_FORMAT = "$%,.2f"`: sprintf format for Streamlit's `NumberColumn`; `1234.5` shows as `$1,234.50` (§5, decision U11).
+- `PCT_FORMAT = "%.1f%%"`: sprintf format for Margin %, applied to the value × 100; `75.0` shows as `75.0%` (§6.3, decision U11).
 - `MONEY_COLUMNS: dict[str, tuple[str, ...]]`: the §6.3 list, per tab.
+- `number_formats(tab: str) -> dict[str, str]`: sheet header → format string for that tab's money columns and (Products) `Margin %`. Plain strings, so `display.py` needs no Streamlit; `app.py` turns each into `st.column_config.NumberColumn(format=...)`.
 - `table_view(tab: str, df: DataFrame) -> DataFrame`: returns a **new** DataFrame for display:
-  - money columns formatted with `format_money`, `margin_pct` with `format_pct`;
+  - money columns stay numeric (float), unrounded; rounding happens only in the browser through the column format (§5);
+  - `margin_pct` stays numeric and is multiplied by 100 (`0.75` → `75.0`, `0.6667` → `66.67`), because sprintf formats don't scale percentages;
   - `email` passed through `mask_email` (spec 001 `report.py`);
   - dates shown as `YYYY-MM-DD` text (decision U4);
   - columns renamed to sheet headers using the reverse of `schema.COLUMNS` (§6.3), in the same order;
@@ -109,7 +112,7 @@ Top to bottom, on every rerun:
 3. `cache.get(load_data)` in a `try`. On `DataSourceError`: `st.error` with the heading and the message on separate lines, then `st.stop()`. No other exception handling is added, so no stack trace text is produced by our code.
 4. `st.warning` for each banner message.
 5. `st.tabs(["Orders", "Products", "Customers", "Data quality"])`.
-6. Each table tab: widgets with per-tab `key`s, then the count, then `st.dataframe(display.table_view(...), hide_index=True)`.
+6. Each table tab: widgets with per-tab `key`s, then the count, then `st.dataframe(display.table_view(...), hide_index=True, column_config={header: st.column_config.NumberColumn(format=fmt) for header, fmt in display.number_formats(tab).items()})`. Money and Margin % columns therefore sort by value in the browser.
    - Before each multiselect is drawn, its stored selection is pruned with `prune_selection` against the current options (§6.4 refresh rule).
    - Start and end date are two `st.date_input` widgets (decision U2). On first run they default to `default_date_range`. If start > end, `st.warning("Start date is after end date.")` and the filtered table is empty.
 7. Data quality tab: `st.dataframe(summary_frame(...))`, then `st.dataframe(entries_frame(...))` or `st.write("No problems found.")`.
@@ -139,8 +142,10 @@ Top to bottom, on every rerun:
 `test_app.py` uses `AppTest.from_file("src/shopify_dashboard/app.py")`:
 - `load_data` is patched at `shopify_dashboard.load_data` with `unittest.mock.patch`, so the real sheet is never called (CLAUDE.md).
 - An autouse fixture clears `st.cache_resource` before each test, so the shared `LoadCache` does not leak between tests.
-- Checks: title text, button label, tab labels and order, error heading and message, no tabs on error, banner present or absent, row-count text, Refunded rows listed, masked email, "Refresh data" calls the loader again, and selections kept after refresh with a vanished value removed.
+- Checks: title text, button label, tab labels and order, error heading and message, no tabs on error, banner present or absent, row-count text, Refunded rows listed, masked email, the column config each table's `st.dataframe` receives (read from the element's proto: every §6.3 money column is a number column with format `$%,.2f`, `Margin %` has `%.1f%%`) and that those columns hold numbers, not text, "Refresh data" calls the loader again, and selections kept after refresh with a vanished value removed.
 - Exact TTL timing is tested in `test_cache.py`, not here.
+- Column config is read from `at.dataframe[i].proto.columns` (a JSON string, e.g. `{"Line Total (CAD)": {"type_config": {"type": "number", "format": "$%,.2f"}}}`), and dtypes from `at.dataframe[i].value`. Checked against `streamlit==1.64.0` on 2026-10-05.
+- `AppTest.run` defaults to a 3 s timeout, which the first run exceeded while importing; tests pass `timeout=30`.
 
 ### 4.3 Static checks
 `test_static.py` parses source files with `ast`, never by running them:
@@ -159,7 +164,7 @@ The three launcher checks in spec §7.2 need the real `.env`. CLAUDE.md forbids 
 | 7.1 Refresh calls the loader again | `test_cache.py` (`clear`) and `test_app.py` (button) |
 | 7.1 heading + loader message per category, no stack trace; Refresh visible on error | `test_display.py` (headings), `test_app.py` |
 | 7.1 banner shown / not shown; dropped counts | `test_quality.py`, `test_app.py` |
-| 7.1 `1234.5` → `$1,234.50`, `69.5` → `$69.50`, data unchanged | `test_display.py` |
+| 7.1 `1234.5` → `$1,234.50`, `69.5` → `$69.50`, data unchanged | `test_display.py` (format string, numeric values, input unchanged) and `test_app.py` (column config passed to `st.dataframe`). The rendered text is produced by Streamlit's frontend and is not tested (decision U11). |
 | 7.1 `config` unset vs placeholder share heading, no value | `test_app.py` (two `DataSourceError`s built with `load_config`'s real messages) |
 | 7.2 layout and scope | `test_app.py`, `test_static.py` |
 | 7.2 table tabs | `test_display.py`, `test_app.py` |
@@ -186,7 +191,7 @@ The next SDD step is to turn these steps into `specs/003-dashboard-ui.tasks.md`.
 
 ## 6. Risks and notes
 
-- **Formatted money columns are text** in the displayed table, so clicking a money column header in the browser sorts it as text, not by value. The spec does not require sorting. A numeric column with Streamlit's own formatting would sort correctly but can't be checked by pure tests. Raise again if sorting matters.
+- **Display formatting is done by Streamlit's frontend** (decision U11). Money and Margin % columns stay numeric, so sorting in the browser is by value. Tests check the format strings and the column config passed to `st.dataframe`, not the rendered text. The format strings depend on Streamlit's sprintf support (`%,` for thousand separators), which is documented for the pinned `streamlit==1.64.0`; upgrading Streamlit needs a visual check of one money and one Margin % cell.
 - **Mixed-type `value` column** (text, numbers, dates in one column): Streamlit's Arrow conversion may refuse it or convert it with a warning. See decision U3.
 - **Shared cache:** one `LoadCache` serves every browser session, like `st.cache_data`. One user's Refresh clears it for everyone. That matches §2 for a single-user dashboard.
 - **AppTest limits:** `AppTest` doesn't render the browser, so the visual order of elements is checked by element order in the script's output tree, not by pixel position.
@@ -209,3 +214,9 @@ These are details the spec leaves open. Each one needs approval before the task 
 - **U8. `.env` parsing.** Blank lines and `#` comments are skipped, the line is split on the first `=`, and one pair of matching surrounding quotes is removed. A non-empty line without `=` stops the script, naming the line number but never its text.
 - **U9. Python used by `run.ps1`.** The project's `.venv\Scripts\python.exe`. If `.venv` is missing, the script stops with a message instead of falling back to the system Python, which doesn't have the dependencies.
 - **U10. Pure modules.** `display.py`, `filters.py`, `quality.py` and `cache.py` are new modules in the package, beyond `filters.py` and `app.py`, which spec §6 names. They follow the CLAUDE.md rule that logic stays out of Streamlit.
+- **U11. Numeric money and Margin % columns** (added on approval, 2026-10-05). The display DataFrame keeps money and Margin % as numbers, and `app.py` formats them through `st.column_config.NumberColumn`, so sorting works by value:
+  - money: format `"$%,.2f"` (`1234.5` → `$1,234.50`). `"$%.2f"` was considered but has no thousands separator, which §5 requires;
+  - Margin %: the display copy holds `margin_pct × 100` with format `"%.1f%%"` (`0.75` → `75.0%`, `0.6667` → `66.7%`). The built-in `"percent"` format scales correctly but shows 2 decimals, against §6.3;
+  - tests check the column config passed to `st.dataframe`, not the rendered text.
+
+  No spec change is needed: §5 and §6.3 describe what is displayed, and this only changes how.
