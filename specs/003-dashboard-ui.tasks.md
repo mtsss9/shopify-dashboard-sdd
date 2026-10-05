@@ -124,7 +124,7 @@ Planning decisions U1–U11 are listed in plan §8.
   - Tested on the spec 001 fixture `LoadResult` plus small DataFrames with dates on the range boundaries.
   - *Covers:* AC-26 to AC-35 and AC-37 at unit level (AC-30 to AC-32 also in T6).
 
-- [ ] **T3. Cache** (`cache.py`, `tests/test_cache.py`)
+- [x] **T3. Cache** (`cache.py`, `tests/test_cache.py`)
   - `LoadCache` with `TTL_SECONDS = 300`, an injectable clock, `get`, `clear` and a lock.
   - `FakeClock` and a counting fake loader in the tests.
   - *Covers:* AC-01, AC-02, AC-04; AC-03 (`clear`, unit level).
