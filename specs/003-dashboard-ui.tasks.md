@@ -134,7 +134,7 @@ Planning decisions U1–U11 are listed in plan §8.
   - Reports built with `make_entry` and `TabSummary`.
   - *Covers:* AC-07 (messages), AC-08, AC-39 to AC-45 at unit level.
 
-- [ ] **T5. App frame** (`app.py`, `tests/test_app.py`)
+- [x] **T5. App frame** (`app.py`, `tests/test_app.py`)
   - Page config, title, "Refresh data" button, `LoadCache` through `st.cache_resource`, error screen with `st.stop()`, banner, the four tabs (empty for now).
   - `AppTest.from_file` with `load_data` patched; autouse fixture clears `st.cache_resource`; `run(timeout=30)`.
   - *Covers:* AC-03 (button), AC-05, AC-06, AC-07, AC-10, AC-11, AC-12, AC-13, AC-14.

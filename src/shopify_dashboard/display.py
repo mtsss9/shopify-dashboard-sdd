@@ -4,6 +4,8 @@ No Streamlit import: ``app.py`` turns the plain format strings here into
 ``st.column_config.NumberColumn`` objects (plan 003 decision U11).
 """
 
+import re
+
 import pandas as pd
 
 from shopify_dashboard.errors import ErrorCategory
@@ -72,6 +74,25 @@ def table_view(tab: str, df: pd.DataFrame) -> pd.DataFrame:
         if s.kind == "date" and s.name in view.columns:
             view[s.name] = pd.to_datetime(view[s.name]).dt.strftime("%Y-%m-%d")
     return view.rename(columns=_headers(tab))
+
+
+_MARKDOWN_SPECIAL = re.compile(r"([\\`*_{}\[\]()<>#+\-.!|$~])")
+
+
+def escape_markdown(text: str) -> str:
+    """Backslash-escape Markdown punctuation so ``text`` renders exactly as written.
+
+    Implements specs/003-dashboard-ui.md §3 (the loader's message is shown unchanged).
+    """
+    return _MARKDOWN_SPECIAL.sub(r"\\\1", text)
+
+
+def error_text(heading: str, message: str) -> str:
+    """Return the error-screen text: bold heading, then the message on its own line.
+
+    Implements specs/003-dashboard-ui.md §3.
+    """
+    return f"**{heading}**\n\n{escape_markdown(message)}"
 
 
 def row_count_text(shown: int, total: int) -> str:

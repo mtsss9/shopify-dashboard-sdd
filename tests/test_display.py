@@ -202,3 +202,21 @@ def test_empty_frame() -> None:
 )
 def test_row_count_text(shown: int, total: int, text: str) -> None:
     assert display.row_count_text(shown, total) == text
+
+
+# Error screen text (§3: the loader's message shown exactly as written)
+
+
+def test_escape_markdown_escapes_punctuation() -> None:
+    assert display.escape_markdown("SHEET_ID *x* $1 [a](b) `c` #") == (
+        r"SHEET\_ID \*x\* \$1 \[a\]\(b\) \`c\` \#"
+    )
+
+
+def test_escape_markdown_leaves_plain_text() -> None:
+    assert display.escape_markdown("Sheet tab Orders is empty") == "Sheet tab Orders is empty"
+
+
+def test_error_text_heading_then_message() -> None:
+    text = display.error_text("Column missing", "Tab Orders has no column Line Total (CAD).")
+    assert text == r"**Column missing**" + "\n\n" + r"Tab Orders has no column Line Total \(CAD\)\."
