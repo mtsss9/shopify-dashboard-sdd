@@ -138,70 +138,70 @@ Email values in the entries are always masked. (Spec 001 masks them when an entr
 
 All criteria use a mocked loader and a controllable clock.
 
-- [ ] Two loads within 5 minutes call the loader once.
-- [ ] A load 5 minutes or more after the last one calls the loader again.
-- [ ] Pressing "Refresh data" calls the loader again within the 5 minutes.
-- [ ] A load that fails is not cached. The next load calls the loader again.
-- [ ] Each `DataSourceError` category shows its heading from §3 with the loader's message text underneath, unchanged, and no stack trace.
-- [ ] The Refresh button is visible on the error screen.
-- [ ] A report with a tab where `over_threshold = true` shows the banner. With none, no banner is shown.
-- [ ] Dropped-row counts per tab match the report.
-- [ ] A money value of `1234.5` is displayed as `$1,234.50` and `69.5` as `$69.50`, while the underlying data is unchanged.
-- [ ] A `config` error for an unset variable and one for a placeholder value both show the "Configuration problem" heading; the message names the variable and never its value.
+- [x] Two loads within 5 minutes call the loader once.
+- [x] A load 5 minutes or more after the last one calls the loader again.
+- [x] Pressing "Refresh data" calls the loader again within the 5 minutes.
+- [x] A load that fails is not cached. The next load calls the loader again.
+- [x] Each `DataSourceError` category shows its heading from §3 with the loader's message text underneath, unchanged, and no stack trace.
+- [x] The Refresh button is visible on the error screen.
+- [x] A report with a tab where `over_threshold = true` shows the banner. With none, no banner is shown.
+- [x] Dropped-row counts per tab match the report.
+- [x] A money value of `1234.5` is displayed as `$1,234.50` and `69.5` as `$69.50`, while the underlying data is unchanged.
+- [x] A `config` error for an unset variable and one for a placeholder value both show the "Configuration problem" heading; the message names the variable and never its value.
 
 ### 7.2 Phase 1: Data Explorer (§6)
 
 Filter criteria are pytest tests on `filters.py` with fixture DataFrames and no Streamlit. The other criteria use a mocked loader.
 
 Layout and scope
-- [ ] The page title is "Shopify Data Explorer".
-- [ ] The Refresh button is shown above the tabs.
-- [ ] The four tabs appear in the order Orders, Products, Customers, Data quality.
-- [ ] On a load error, the four tabs are not shown; the title, Refresh button and error message are.
-- [ ] No KPI, total or chart is shown.
-- [ ] `app.py` calls only `load_data()` from the data layer.
+- [x] The page title is "Shopify Data Explorer".
+- [x] The Refresh button is shown above the tabs.
+- [x] The four tabs appear in the order Orders, Products, Customers, Data quality.
+- [x] On a load error, the four tabs are not shown; the title, Refresh button and error message are.
+- [x] No KPI, total or chart is shown.
+- [x] `app.py` calls only `load_data()` from the data layer.
 
 Table tabs
-- [ ] With no filters set, each table tab shows "Showing Y of Y rows", where Y is the loader's row count for that tab.
-- [ ] With filters set, the count shows the filtered row count as X.
-- [ ] Every money column listed in §6.3 is shown with `$` and exactly 2 decimals.
-- [ ] A `margin_pct` of `0.75` is shown as `75.0%` and `0.6667` as `66.7%`.
-- [ ] Table headers are the sheet headers (e.g. "Line Total (CAD)"), not snake_case names.
-- [ ] Table rows are in the loader's order.
-- [ ] The Customers table never shows a full email; `jane.doe@example.com` is shown masked.
-- [ ] Displaying a table leaves the loader's DataFrame unchanged.
-- [ ] Orders with Status `Refunded` are listed in the Orders table.
+- [x] With no filters set, each table tab shows "Showing Y of Y rows", where Y is the loader's row count for that tab.
+- [x] With filters set, the count shows the filtered row count as X.
+- [x] Every money column listed in §6.3 is shown with `$` and exactly 2 decimals.
+- [x] A `margin_pct` of `0.75` is shown as `75.0%` and `0.6667` as `66.7%`.
+- [x] Table headers are the sheet headers (e.g. "Line Total (CAD)"), not snake_case names.
+- [x] Table rows are in the loader's order.
+- [x] The Customers table never shows a full email; `jane.doe@example.com` is shown masked.
+- [x] Displaying a table leaves the loader's DataFrame unchanged.
+- [x] Orders with Status `Refunded` are listed in the Orders table.
 
 Filters
-- [ ] An Order Date range keeps orders on the start date and on the end date (both inclusive) and drops orders outside it.
-- [ ] A Category, Status or Sales Channel selection on Orders keeps only matching rows.
-- [ ] A Category, Status, Sales Channel or Province filter with nothing selected keeps every row.
-- [ ] Filter options are the distinct values present in the loaded data, sorted A–Z; an allowed value absent from the data is not offered.
-- [ ] The Order Date range defaults to the earliest and latest `order_date` in the data.
-- [ ] A start date after the end date keeps no rows and shows "Start date is after end date."
-- [ ] After "Refresh data", selections are kept, and a selected value missing from the new data is removed from the selection.
-- [ ] Two Orders filters together keep only rows that match both.
-- [ ] A Category selection on Products keeps only matching rows.
-- [ ] A Province selection on Customers keeps only matching rows.
-- [ ] Filtering one tab does not change the rows shown on any other tab.
-- [ ] The filter functions return a new DataFrame and leave their input unchanged.
-- [ ] `filters.py` does not import Streamlit.
+- [x] An Order Date range keeps orders on the start date and on the end date (both inclusive) and drops orders outside it.
+- [x] A Category, Status or Sales Channel selection on Orders keeps only matching rows.
+- [x] A Category, Status, Sales Channel or Province filter with nothing selected keeps every row.
+- [x] Filter options are the distinct values present in the loaded data, sorted A–Z; an allowed value absent from the data is not offered.
+- [x] The Order Date range defaults to the earliest and latest `order_date` in the data.
+- [x] A start date after the end date keeps no rows and shows "Start date is after end date."
+- [x] After "Refresh data", selections are kept, and a selected value missing from the new data is removed from the selection.
+- [x] Two Orders filters together keep only rows that match both.
+- [x] A Category selection on Products keeps only matching rows.
+- [x] A Province selection on Customers keeps only matching rows.
+- [x] Filtering one tab does not change the rows shown on any other tab.
+- [x] The filter functions return a new DataFrame and leave their input unchanged.
+- [x] `filters.py` does not import Streamlit.
 
 Data quality tab
-- [ ] The summary shows rows read, rows dropped, drop rate and warnings per tab, matching the report.
-- [ ] Warning counts per tab match the number of `warning` entries for that tab.
-- [ ] Every report entry appears in the entries table with its six fields.
-- [ ] The `value` column shows each entry's value exactly as stored in the report.
-- [ ] Entries are sorted by tab (Orders, Products, Customers), then row, then column.
-- [ ] A report with no entries shows "No problems found." instead of the entries table.
-- [ ] An entry whose column is `Email` shows the masked value, never the full email.
+- [x] The summary shows rows read, rows dropped, drop rate and warnings per tab, matching the report.
+- [x] Warning counts per tab match the number of `warning` entries for that tab.
+- [x] Every report entry appears in the entries table with its six fields.
+- [x] The `value` column shows each entry's value exactly as stored in the report.
+- [x] Entries are sorted by tab (Orders, Products, Customers), then row, then column.
+- [x] A report with no entries shows "No problems found." instead of the entries table.
+- [x] An entry whose column is `Email` shows the masked value, never the full email.
 
 Launcher
-- [ ] No file under `src/` imports a dotenv library or opens `.env` (static test).
-- [ ] Manual check: with a filled-in `.env`, `run.ps1` starts the app and the real sheet loads; no configuration value is printed to the terminal.
-- [ ] Manual check: with `.env` left as a copy of `.env.example`, the app shows the `config` heading from §3 with the loader's placeholder message.
-- [ ] Manual check: with `SHEET_ID` set in the session to a value different from the one in `.env`, `run.ps1` uses the `.env` value.
-- [ ] Manual check: with no `.env`, `run.ps1` prints the missing-file message, does not start the app, and exits non-zero.
+- [x] No file under `src/` imports a dotenv library or opens `.env` (static test).
+- [x] Manual check: with a filled-in `.env`, `run.ps1` starts the app and the real sheet loads; no configuration value is printed to the terminal.
+- [x] Manual check: with `.env` left as a copy of `.env.example`, the app shows the `config` heading from §3 with the loader's placeholder message.
+- [x] Manual check: with `SHEET_ID` set in the session to a value different from the one in `.env`, `run.ps1` uses the `.env` value.
+- [x] Manual check: with no `.env`, `run.ps1` prints the missing-file message, does not start the app, and exits non-zero.
 
 ## 8. Open questions
 

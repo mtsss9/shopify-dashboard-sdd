@@ -150,16 +150,16 @@ Planning decisions U1–U11 are listed in plan §8.
     - AC-17, AC-18, AC-21, AC-23, AC-25;
     - AC-30, AC-31, AC-32, AC-36.
 
-- [ ] **T7. App Data quality tab** (`app.py`, `tests/test_app.py`)
+- [x] **T7. App Data quality tab** (`app.py`, `tests/test_app.py`)
   - Summary table, then the entries table or "No problems found."
   - A test that the whole app shows no chart or metric element.
   - *Covers:* AC-08, AC-39, AC-41, AC-44 (in the app); AC-15.
 
-- [ ] **T8. Static checks** (`tests/test_static.py`)
+- [x] **T8. Static checks** (`tests/test_static.py`)
   - `ast`-based: the four pure modules import no `streamlit`; nothing in `src/` imports `dotenv` or names `.env`; `app.py` imports nothing from the data-layer modules and uses only `load_data` (and `DataSourceError`) from the package root.
   - *Covers:* AC-16, AC-38, AC-46.
 
-- [ ] **T9. Launcher and sign-off** (`run.ps1`)
+- [x] **T9. Launcher and sign-off** (`run.ps1`)
   - Written to plan §3 (U1, U8, U9). Claude does not run it, because it loads `.env`.
   - The user runs M1–M4; results recorded below.
   - Propose (not apply) a CLAUDE.md update for the `streamlit run` command, now that the entry point exists.
@@ -168,4 +168,13 @@ Planning decisions U1–U11 are listed in plan §8.
 
 ## Manual check result
 
-Not run yet.
+2026-10-05, run by the user:
+
+- **M1:** passed. `run.ps1` started the app at http://localhost:8501 and the real sheet loaded (Data quality tab: Orders 1000, Products 10, Customers 150 rows read, none dropped, "No problems found."). The user confirmed no configuration value was printed to the terminal.
+- **M2:** passed (reported by the user).
+- **M3:** passed (reported by the user).
+- **M4:** passed (reported by the user).
+
+CLAUDE.md: the run command now reads `.\run.ps1` (approved by the user, 2026-10-05).
+
+Automated: `pytest` 545 passed, `ruff check` clean. AC-01 to AC-46 ticked in spec §7.
