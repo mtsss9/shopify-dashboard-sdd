@@ -139,7 +139,7 @@ Planning decisions U1–U11 are listed in plan §8.
   - `AppTest.from_file` with `load_data` patched; autouse fixture clears `st.cache_resource`; `run(timeout=30)`.
   - *Covers:* AC-03 (button), AC-05, AC-06, AC-07, AC-10, AC-11, AC-12, AC-13, AC-14.
 
-- [ ] **T6. App table tabs** (`app.py`, `tests/test_app.py`)
+- [x] **T6. App table tabs** (`app.py`, `tests/test_app.py`)
   - Per tab: row count, widgets with per-tab keys, filtered table.
   - `st.dataframe(..., hide_index=True, column_config=...)` with `NumberColumn(format=...)` built from `number_formats(tab)` (U11).
   - Start and End `st.date_input` (U2), the start-after-end warning, no date pickers on an empty Orders tab (U6).
