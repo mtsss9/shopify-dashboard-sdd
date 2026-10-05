@@ -119,7 +119,7 @@ Planning decisions U1–U11 are listed in plan §8.
     - AC-20 (`0.75` → `75.0`, `0.6667` → `66.67`, with `PCT_FORMAT`);
     - AC-17 (count text), AC-21, AC-22, AC-23, AC-24.
 
-- [ ] **T2. Filters** (`filters.py`, `tests/test_filters.py`)
+- [x] **T2. Filters** (`filters.py`, `tests/test_filters.py`)
   - `options`, `default_date_range` (`None` when empty, U6), `prune_selection`, `filter_values`, `filter_date_range`, `filter_orders`, `filter_products`, `filter_customers`.
   - Tested on the spec 001 fixture `LoadResult` plus small DataFrames with dates on the range boundaries.
   - *Covers:* AC-26 to AC-35 and AC-37 at unit level (AC-30 to AC-32 also in T6).
