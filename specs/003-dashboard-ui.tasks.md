@@ -129,7 +129,7 @@ Planning decisions U1–U11 are listed in plan §8.
   - `FakeClock` and a counting fake loader in the tests.
   - *Covers:* AC-01, AC-02, AC-04; AC-03 (`clear`, unit level).
 
-- [ ] **T4. Data quality helpers** (`quality.py`, `tests/test_quality.py`)
+- [x] **T4. Data quality helpers** (`quality.py`, `tests/test_quality.py`)
   - `banner_messages`, `summary_frame` (drop rate with 1 decimal, U7), `entries_frame` (`None` when empty; values as `str(value)`, U3).
   - Reports built with `make_entry` and `TabSummary`.
   - *Covers:* AC-07 (messages), AC-08, AC-39 to AC-45 at unit level.
