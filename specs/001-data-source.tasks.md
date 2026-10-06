@@ -50,6 +50,11 @@ Each ID below refers to an acceptance criterion in spec §10, in the order it ap
 | AC-28 | A row with values only in extra columns is skipped, not reported |
 | AC-29 | An unreadable calculated cell keeps its row with a `calculated value unreadable` warning; no mismatch warning; not counted as dropped |
 | AC-30 | A config value equal to its `.env.example` placeholder raises `config`; a `.env.example` file is never read |
+| AC-31 | Duplicate Order ID rows, one with `#N/A` in `Product Name`, record only `duplicate Order ID` |
+| AC-32 | Discount `-0.001` is dropped with `must be 0 or more`; Unit Price `0.005` loads |
+| AC-33 | `45` in a date column, in a cell not formatted as a date, is dropped with `must be a date (YYYY-MM-DD)` (Order Date and Customer Since) |
+| AC-34 | A serial number in a date or date-time formatted cell loads as that date |
+| AC-35 | One loader call makes exactly one spreadsheet lookup and one batch value read |
 | MANUAL | The real sheet loads 1,000 / 10 / 150 rows with 0 dropped |
 
 Planning decisions D1–D4 are listed in plan §8.
@@ -154,6 +159,13 @@ Planning decisions D1–D4 are listed in plan §8.
   - Record the result below. Tick the acceptance criteria in spec §10.
   - *Covers:* MANUAL. Final check of AC-01 to AC-30 (full `pytest` run and `ruff check` clean).
 
+- [x] **T12. Spec amendment 2026-10-06** (`parsing.py`, `report.py`, `sheets_client.py`, tests)
+  - Edits 1–3 clarify existing behaviour; tests added for AC-31 and AC-32.
+  - Edit 4 (plan D27): the lookup also returns cell format types; numbers in `DATE` / `DATE_TIME` cells become `SheetDate`; a plain number in a date column is dropped.
+  - Test fixtures wrap date-column numbers in `SheetDate`, as the client does for date-formatted cells.
+  - *Covers:* AC-31 to AC-35. `pytest` and `ruff check` pass.
+  - MANUAL check rerun on 2026-10-06 (see below); AC-31 to AC-35 ticked in spec §10.
+
 ## Manual check result
 
 - **Date:** 2026-10-01. Run by the user in their own PowerShell terminal, with configuration loaded from their local env file. Claude does not read that file.
@@ -161,3 +173,10 @@ Planning decisions D1–D4 are listed in plan §8.
 - **Headers:** the load finished with no `missing_tab`, `missing_column` or `duplicate_column` error, so the real tabs and headers match the schema (spec §4–6, §9).
 - **Automated check:** 303 tests passed; `ruff check` and `ruff format --check` clean (commit `0744502`).
 - **Note:** the first attempt used a 33-character Drive ID as `SHEET_ID` instead of the 44-character spreadsheet ID. The user corrected the value before the successful run. No code change was needed.
+
+### Rerun after T12 (2026-10-06)
+
+- **Why:** T12 changed how dates are read (plan D27), so a real-sheet date cell not formatted as a date would now be dropped.
+- **Run by:** the user, in their own PowerShell terminal, with configuration loaded from their local env file. Claude does not read that file.
+- **Rows read / dropped:** Orders 1,000 / 0, Products 10 / 0, Customers 150 / 0. Warnings: 0. No report entries.
+- **Automated check:** 606 tests passed; `ruff check` and `ruff format --check` clean.

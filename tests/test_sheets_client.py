@@ -11,11 +11,13 @@ import gspread
 import pytest
 import requests
 
-from conftest import TABS, TODAY
+from conftest import TABS, TODAY, set_cell, unwrap_dates
 from shopify_dashboard import load_data
 from shopify_dashboard.config import Config
 from shopify_dashboard.errors import DataSourceError, ErrorCategory
-from shopify_dashboard.sheets_client import GspreadSheetsClient
+from shopify_dashboard.parsing import SheetDate
+from shopify_dashboard.report import Severity
+from shopify_dashboard.sheets_client import METADATA_PARAMS, GspreadSheetsClient
 
 FAKE_ID = "fake-sheet-id-123"
 FAKE_PATH = "C:/fake/dir/service-key.json"
@@ -23,12 +25,47 @@ CONFIG = Config(sheet_id=FAKE_ID, credentials_path=FAKE_PATH)
 PATCH = "shopify_dashboard.sheets_client.gspread.service_account"
 
 
-def fake_gspread(titles: list[str], values: dict[str, list] | None = None) -> MagicMock:
-    """A patched gspread client whose sheet has ``titles`` and returns ``values``."""
+def date_cells_of(tabs: dict) -> dict[str, set[tuple[int, int]]]:
+    """Zero-based positions of the ``SheetDate`` cells, i.e. the date-formatted cells."""
+    return {
+        t: {
+            (i, j)
+            for i, row in enumerate(rows)
+            for j, v in enumerate(row)
+            if isinstance(v, SheetDate)
+        }
+        for t, rows in tabs.items()
+    }
+
+
+def grid(cells: set[tuple[int, int]], fmt: str = "DATE") -> list[dict]:
+    """``data`` for one sheet: ``fmt`` on ``cells``; other cells have no number format."""
+    if not cells:
+        return [{"rowData": []}]
+    rows = []
+    for i in range(max(r for r, _ in cells) + 1):
+        values = [
+            {"effectiveFormat": {"numberFormat": {"type": fmt}}} if (i, j) in cells else {}
+            for j in range(max(c for _, c in cells) + 1)
+        ]
+        rows.append({"values": values})
+    return [{"rowData": rows}]
+
+
+def fake_gspread(
+    titles: list[str],
+    values: dict[str, list] | None = None,
+    date_cells: dict[str, set[tuple[int, int]]] | None = None,
+) -> MagicMock:
+    """A patched gspread client whose sheet has ``titles``, cells formatted as dates at
+    ``date_cells``, and returns ``values`` as the values API does (plain numbers)."""
     client = MagicMock()
     http = client.http_client
     http.fetch_sheet_metadata.return_value = {
-        "sheets": [{"properties": {"title": t}} for t in titles]
+        "sheets": [
+            {"properties": {"title": t}, "data": grid((date_cells or {}).get(t, set()))}
+            for t in titles
+        ]
     }
 
     def batch(sheet_id: str, ranges: list[str], params: dict) -> dict:
@@ -61,7 +98,7 @@ def api_error(status: int, body: bytes | None = None) -> gspread.exceptions.APIE
 
 
 def test_reads_all_tabs_in_one_batch() -> None:
-    """Spec §8: one metadata lookup, then exactly one batch of value reads."""
+    """Spec §8 and AC-35: one spreadsheet lookup, then exactly one batch of value reads."""
     client = fake_gspread(list(TABS), {"Orders": [["Order ID"], ["#1001"]]})
     with patch(PATCH, return_value=client) as service_account:
         raw = GspreadSheetsClient(CONFIG).fetch_tabs(TABS)
@@ -73,8 +110,13 @@ def test_reads_all_tabs_in_one_batch() -> None:
     )
     http = client.http_client
     http.fetch_sheet_metadata.assert_called_once_with(
-        FAKE_ID, params={"fields": "sheets.properties.title"}
+        FAKE_ID,
+        params=METADATA_PARAMS,
     )
+    assert METADATA_PARAMS == {
+        "includeGridData": "true",
+        "fields": "sheets(properties.title,data.rowData.values.effectiveFormat.numberFormat.type)",
+    }
     assert http.values_batch_get.call_count == 1
     sheet_id, ranges = http.values_batch_get.call_args.args
     assert (sheet_id, ranges) == (FAKE_ID, ["'Products'", "'Customers'", "'Orders'"])
@@ -115,6 +157,39 @@ def test_no_existing_tabs_makes_no_value_read() -> None:
     with patch(PATCH, return_value=client):
         assert GspreadSheetsClient(CONFIG).fetch_tabs(TABS) == {}
     client.http_client.values_batch_get.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("fmt", "expected"),
+    [
+        ("DATE", SheetDate(46032.75)),
+        ("DATE_TIME", SheetDate(46032.75)),
+        ("NUMBER", 46032.75),
+        ("TIME", 46032.75),
+    ],
+)
+def test_only_date_formatted_numbers_become_sheet_dates(fmt: str, expected: object) -> None:
+    """AC-33, AC-34, D27: DATE and DATE_TIME cells hold date values; other numbers stay plain."""
+    values = {"Orders": [["Order Date", "Quantity"], [46032.75, 2], ["", 3]]}
+    client = fake_gspread(["Orders"], values, {"Orders": {(1, 0), (2, 0)}})
+    client.http_client.fetch_sheet_metadata.return_value["sheets"][0]["data"] = grid(
+        {(1, 0), (2, 0)}, fmt
+    )
+    with patch(PATCH, return_value=client):
+        raw = GspreadSheetsClient(CONFIG).fetch_tabs(["Orders"])
+    # Quantity has no date format and a blank cell stays blank.
+    assert raw["Orders"] == [["Order Date", "Quantity"], [expected, 2], ["", 3]]
+
+
+def test_format_grid_offsets_are_respected() -> None:
+    """A format grid that starts below or right of A1 still maps to the right cells."""
+    client = fake_gspread(["Orders"], {"Orders": [["A", "Order Date"], [1, 46032]]})
+    client.http_client.fetch_sheet_metadata.return_value["sheets"][0]["data"] = [
+        {"startRow": 1, "startColumn": 1, **grid({(0, 0)})[0]}
+    ]
+    with patch(PATCH, return_value=client):
+        raw = GspreadSheetsClient(CONFIG).fetch_tabs(["Orders"])
+    assert raw["Orders"] == [["A", "Order Date"], [1, SheetDate(46032)]]
 
 
 def test_tab_names_are_quoted_for_a1_ranges() -> None:
@@ -202,11 +277,32 @@ def test_load_data_builds_the_real_client_from_the_environment(
 ) -> None:
     monkeypatch.setenv("SHEET_ID", FAKE_ID)
     monkeypatch.setenv("GOOGLE_APPLICATION_CREDENTIALS", FAKE_PATH)
-    client = fake_gspread(list(TABS), base_tabs)
+    client = fake_gspread(list(TABS), unwrap_dates(base_tabs), date_cells_of(base_tabs))
     with patch(PATCH, return_value=client):
         result = load_data(today=TODAY)
     assert (len(result.orders), len(result.products), len(result.customers)) == (8, 4, 3)
+    assert result.report.entries == []
+    assert client.http_client.fetch_sheet_metadata.call_count == 1
     assert client.http_client.values_batch_get.call_count == 1
+
+
+@pytest.mark.parametrize(
+    ("tab", "header", "orders_left"),
+    [("Orders", "Order Date", 7), ("Customers", "Customer Since", 5)],  # C-101 has 3 orders
+)
+def test_load_data_drops_a_plain_number_in_a_date_column(
+    monkeypatch: pytest.MonkeyPatch, base_tabs: dict, tab: str, header: str, orders_left: int
+) -> None:
+    """AC-33 end to end: `45` in a cell not formatted as a date is dropped and reported."""
+    monkeypatch.setenv("SHEET_ID", FAKE_ID)
+    monkeypatch.setenv("GOOGLE_APPLICATION_CREDENTIALS", FAKE_PATH)
+    set_cell(base_tabs, tab, 2, header, 45)  # plain number: date_cells_of leaves it unformatted
+    client = fake_gspread(list(TABS), unwrap_dates(base_tabs), date_cells_of(base_tabs))
+    with patch(PATCH, return_value=client):
+        result = load_data(today=TODAY)
+    found = [(e.tab, e.row, e.column, e.value, e.reason, e.severity) for e in result.report.entries]
+    assert (tab, 2, header, 45, "must be a date (YYYY-MM-DD)", Severity.DROPPED) in found
+    assert len(result.orders) == orders_left
 
 
 def test_load_data_without_config_never_touches_gspread(monkeypatch: pytest.MonkeyPatch) -> None:

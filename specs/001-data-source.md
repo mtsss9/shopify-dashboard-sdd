@@ -4,6 +4,7 @@
 **Owner:** Tell
 **Depends on:** none
 **Used by:** 002-kpis, 003-dashboard-ui
+**Amended:** 2026-10-06. Clarified duplicate-key rows (§7.2), the runtime Line Total cross-check (§3, §3.1, §11) and the money tolerance (§3). These match the existing behaviour. One behaviour change: a plain number in a date column, in a cell not formatted as a date, is now dropped (§3, §7.3, §8).
 
 ## 1. Goal
 
@@ -31,12 +32,12 @@ Row 1 of each tab is the header, and data starts on row 2. The number of rows is
 ## 3. Reading values
 
 - Numbers must be read as raw numbers, not display text. The sheet displays `$45.00` and shows zero discounts as `-`; the loader must receive `45` and `0`.
-- Dates are read as raw values, not display text, so the sheet's display format does not matter. A date cell is accepted if it is either a date value or text in ISO `YYYY-MM-DD` form.
-  (Implementation note: request unformatted values, with dates as serial numbers.)
-- Formula columns (marked *calculated* below) are read as their computed values, but only as a cross-check. See §3.1.
+- Dates are read as raw values, not display text, so the sheet's display format does not matter. A date cell is accepted if it holds either a *date value* or text in ISO `YYYY-MM-DD` form. A date value is a number in a cell whose effective number format in the sheet is a date or date-time type, whatever its display pattern. A plain number in a cell with any other format, e.g. `45` in a Number-formatted or unformatted cell, is not a date value and breaks the rule.
+  (Implementation note: request unformatted values with dates as serial numbers, and read each cell's effective number-format type to tell date values from plain numbers.)
+- Formula columns (marked *calculated* below) are read as their computed values. They are used only for cross-checks, never in the output. See §3.1.
 - Leading and trailing whitespace is removed from all text values and headers before any rule is checked. After that, headers and enum values must match exactly, including case.
 - **Required** means the column must exist and the cell must not be blank. There are two exceptions: a rule that gives blank a meaning (Discount), and *calculated* columns, where a blank cell is not a rule break because the value is recomputed (§3.1).
-- Money columns are stored as `float64`. Money comparisons use a tolerance of 0.01 CAD (1 cent).
+- Money columns are stored as `float64`. A tolerance of 0.01 CAD (1 cent) applies only where a rule states it: the Discount upper limit (§4, §7.3) and the Line Total cross-check (§4, §7.2). All other money bounds (Price > 0, Unit Price > 0, Unit Cost ≥ 0, Discount ≥ 0) are compared exactly.
 - Integer columns must hold whole numbers (`2.5` breaks the rule).
 - A text value in a number or date column breaks the rule (e.g. the text `"45"` in `Quantity`).
 - A number in a text column is read as text (e.g. a Product Name of `1984`). ID format rules still apply, so `1001` in `Order ID` breaks the rule.
@@ -44,7 +45,7 @@ Row 1 of each tab is the header, and data starts on row 2. The number of rows is
 
 ### 3.1 Calculated columns
 
-The code recomputes every *calculated* column from the validated data. The sheet's values are never used in the output. Tests compare the recomputed values with the sheet's values as a cross-check.
+The code recomputes every *calculated* column from the validated data. The sheet's values are never used in the output. At runtime only Line Total (CAD) is cross-checked; a mismatch is recorded as a `warning` (§4, §7.2). The other calculated columns are cross-checked only in tests, which compare the recomputed values with the sheet's values.
 
 **Unreadable calculated values.** A calculated cell is *unreadable* when it holds a Google Sheets error value (`#N/A`, `#REF!`, `#VALUE!`, `#DIV/0!`, `#NAME?`, `#NUM!`, `#NULL!`, `#ERROR!`) in any calculated column, including Product Name and Category in Orders, or, in a number calculated column, any value that is not a valid number of that type (e.g. text in `Units Sold`, or `2.5` in `Orders`). An unreadable calculated cell never drops the row. Its value is treated as missing for cross-checks, the same as a blank calculated cell, and a `warning` is recorded with reason `calculated value unreadable`. Error values in columns that are not calculated get no special treatment.
 
@@ -150,7 +151,7 @@ Messages never contain:
 
 A row that breaks several rules is recorded once for each rule it breaks, but it is dropped only once.
 
-Cross-check warnings (Line Total mismatch, Order Date before `Customer Since`) are recorded only for rows that are kept; a row that is already dropped gets no cross-check warnings. Unreadable calculated cell warnings (§3.1) come from the per-cell checks and are recorded for every row, kept or dropped. Duplicate-key rows get no other checks.
+Cross-check warnings (Line Total mismatch, Order Date before `Customer Since`) are recorded only for rows that are kept; a row that is already dropped gets no cross-check warnings. Unreadable calculated cell warnings (§3.1) come from the per-cell checks and are recorded for every row that goes through them, kept or dropped. Duplicate-key rows are the exception: they are dropped before any per-cell checks run, so each gets only its `duplicate <key column>` entry and no other entries, not even an unreadable-cell warning.
 
 ### 7.3 Validation report
 
@@ -169,7 +170,7 @@ The `reason` field uses exactly these texts:
 | `required` | dropped | A required cell is blank (§3) |
 | `must be a number` | dropped | Text or a true/false value in a number column (§3) |
 | `must be a whole number` | dropped | A fraction in an integer column (§3) |
-| `must be a date (YYYY-MM-DD)` | dropped | A date cell that is neither a date value nor ISO text (§3) |
+| `must be a date (YYYY-MM-DD)` | dropped | A date cell that is neither a date value nor ISO text, including a plain number in a cell not formatted as a date (§3) |
 | `not a real calendar date` | dropped | ISO text for a date that does not exist, e.g. `2026-02-30` (§3) |
 | `invalid format` | dropped | An ID that does not match its format (§4–6) |
 | `not an allowed value` | dropped | An enum value not in its list (§4–6) |
@@ -208,7 +209,7 @@ For each tab, the report also gives:
 
 ## 8. Refresh and caching
 
-- A single call to the loader reads all three tabs with one metadata lookup (to find which tabs exist) plus exactly one batch of value reads.
+- A single call to the loader makes one spreadsheet lookup, which returns the tab names and each cell's number-format type, plus, if any of the three tabs exist, exactly one batch of value reads.
 - The loader itself does not cache. The 5-minute cache and the "Refresh data" button are defined in `specs/003-dashboard-ui.md`.
 - A failed load is never cached.
 
@@ -288,11 +289,16 @@ All criteria except the manual check are pytest tests that use fixtures in `test
 - [x] A row with values only in extra columns is skipped and not reported, and later rows keep their real sheet row numbers.
 - [x] An unreadable calculated cell (`#N/A` in Orders `Product Name`, text in Products `Units Sold`, `#VALUE!` in Orders `Line Total (CAD)`) keeps its row and records one `warning` with reason `calculated value unreadable`. The Line Total case records no mismatch warning, and none of these count towards the drop rate.
 - [x] A `SHEET_ID` or `GOOGLE_APPLICATION_CREDENTIALS` equal to its `.env.example` placeholder raises `config` naming the variable, with no value in the message; a `.env.example` file in the working directory is never read.
+- [x] Two orders sharing an Order ID, one with `#N/A` in `Product Name`, each record only `duplicate Order ID`.
+- [x] A Discount of `-0.001` is dropped with `must be 0 or more`, and a Unit Price of `0.005` loads.
+- [x] `45` in `Order Date` in a cell not formatted as a date is dropped with `must be a date (YYYY-MM-DD)`. The same applies to `Customer Since`.
+- [x] A serial number in a cell formatted as a date or date-time loads as that date.
+- [x] One loader call makes exactly one spreadsheet lookup and one batch value read.
 
 ## 11. Resolved questions
 
 1. Line Total mismatch: keep the row and record a warning (§7.2).
-2. Calculated columns: recompute in code and use the sheet values only as a cross-check in tests (§3.1).
+2. Calculated columns: recompute in code and never use the sheet values in the output. Line Total is cross-checked at runtime (a warning, §7.2); the other calculated columns only in tests (§3.1).
 3. Cache time: 5 minutes, specified in spec 003.
 4. Future Order Dates: dropped and reported, with "today" injectable (§7.4).
 5. Order Date before `Customer Since`: kept with a warning (§7.2).

@@ -101,7 +101,7 @@ Every function has type hints and a docstring naming the spec section, as CLAUDE
     - credential-file errors, token refresh failures and `APIError` with HTTP 401 or 403 become `auth` (decision D25);
     - any other `APIError` (including 404), network errors and timeouts become `unreachable`;
     - the original exception is dropped with `from None`, so no traceback text or IDs reach the message.
-  - Requests: one metadata lookup for tab titles, then one `values_batch_get` (decision D24).
+  - Requests: one spreadsheet lookup for tab titles and cell format types, then one `values_batch_get` (decisions D24, D27). Numbers in date-formatted cells are wrapped in `SheetDate`.
   - This is the only module that imports `gspread` or `google.*`.
 
 ### parsing.py
@@ -122,7 +122,7 @@ Every function has type hints and a docstring naming the spec section, as CLAUDE
   - Text is trimmed. A number in a text column becomes text (decision D12).
   - A decimal must be int or float (text breaks the rule).
   - Integers must be whole numbers.
-  - A date may be a serial number (epoch 1899-12-30) or ISO text parsed strictly, so `2026-02-30` fails. A serial with a time part keeps only the date (decision D13).
+  - A date may be a `SheetDate` serial number (epoch 1899-12-30) or ISO text parsed strictly, so `2026-02-30` fails. A serial with a time part keeps only the date (decision D13). A plain number, from a cell not formatted as a date, is rejected (decision D27).
   - A blank Discount becomes 0.
   - Any other blank required cell gives the reason `required`.
   - A calculated cell that holds a Sheets error value (`#N/A`, `#REF!`, ...) or fails its type conversion gives the reason `calculated value unreadable` (decision D16). Validation turns that reason into a `warning` and keeps the row.
@@ -312,7 +312,7 @@ The next SDD step is to turn these steps into `specs/001-data-source.tasks.md`, 
 ### Changes approved after T7 (2026-10-01)
 
 - **D18. The unreadable-cell definition is confirmed** as written in spec §3.1: Sheets error values in any calculated column, and wrongly typed values in number calculated columns only.
-- **D19. Cross-check warnings only for kept rows.** Line Total mismatch and Order Date before Customer Since are skipped for dropped rows; unreadable-cell warnings are recorded for every row (spec §7.2).
+- **D19. Cross-check warnings only for kept rows.** Line Total mismatch and Order Date before Customer Since are skipped for dropped rows; unreadable-cell warnings are recorded for every row that goes through the per-cell checks, kept or dropped. Duplicate-key rows are dropped before those checks and get only their `duplicate <key column>` entry (spec §7.2, amended 2026-10-06).
 - **D20. Reason texts are fixed** by the table in spec §7.3; tests assert them exactly.
 
 ### Changes approved after T8 (2026-10-01)
@@ -332,3 +332,7 @@ The next SDD step is to turn these steps into `specs/001-data-source.tasks.md`, 
 ### Changes approved after T11 (2026-10-01)
 
 - **D26. Placeholder values are rejected.** `load_config` raises `config` when a variable still equals its placeholder from the committed env template (`SHEET_ID=your-google-sheet-id`, `GOOGLE_APPLICATION_CREDENTIALS=path/to/service-account-key.json`). This catches an env file copied from the template and never filled in. The placeholders are constants in `config.py`, and a test keeps them equal to the template. No file under `src/` imports a dotenv library or names the template file; configuration comes only from the process environment (spec §7.1, AC-30; spec 003 §3).
+
+### Changes approved after the spec 001 amendment (2026-10-06)
+
+- **D27. Date values are told apart from plain numbers by cell format** (spec §3, §7.3, §8). The tab-name lookup becomes one `spreadsheets.get` call whose field mask asks only for tab titles and each cell's `effectiveFormat.numberFormat.type`. The values batch read is unchanged. `fetch_tabs` wraps every number in a cell whose format type is `DATE` or `DATE_TIME` in `SheetDate` (defined in `parsing.py`), so `RawTabs` keeps its shape. `coerce_cell` accepts a number in a date column only as a `SheetDate`; a plain number gives `must be a date (YYYY-MM-DD)`. In any other column a `SheetDate` is unwrapped first, so those columns behave as before. `make_entry` unwraps it too, so report values still show the serial number. In tests, `load_fixture` wraps the numbers in date columns, as the real client would for date-formatted cells, and `sheet_date(d)` builds one.
