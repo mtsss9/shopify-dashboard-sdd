@@ -6,6 +6,10 @@ NotebookEdit, the path, pattern or glob for Grep and Glob, and the command for
 shell tools. Content being written to other files is never inspected, so a spec
 or script that only mentions a secret file name is allowed.
 
+The message of a ``git commit -m``/``--message`` is not a target either, so it is
+removed before a shell command is checked. Only a plain quoted message is removed:
+one with ``$``, a backtick or a backslash could run a command, so it is still checked.
+
 Claude Code sends the tool call as JSON on stdin.
 Exit code 2 blocks the call and shows the stderr message to Claude.
 """
@@ -34,6 +38,24 @@ TARGET_FIELDS: dict[str, tuple[str, ...]] = {
     "Bash": ("command",),
     "PowerShell": ("command",),
 }
+SHELL_TOOLS = {"Bash", "PowerShell"}
+
+# "git commit", optionally with -C <dir> options in between.
+GIT_COMMIT = re.compile(r"\bgit(?:\s+-C\s+(?:\"[^\"]*\"|'[^']*'|\S+))*\s+commit(?![\w-])")
+
+# A message option and its quoted value, ending the argument. Double-quoted
+# values may not contain $ ` or \, so no shell can expand anything inside them.
+COMMIT_MESSAGE = re.compile(
+    r"(?P<flag>--message(?:=|\s+)|-[A-Za-z]*m\s*)"
+    r"(?:\"[^\"$`\\]*\"|'[^']*')"
+    r"(?=\s|$|[;|&])"
+)
+
+# Any other quoted argument, copied as it is.
+QUOTED = re.compile(r"\"[^\"]*\"|'[^']*'")
+
+# Characters that end a git commit and start another command.
+COMMAND_END = set(";|&\n\r")
 
 MESSAGE = (
     "Blocked by protect_secrets hook: credentials.json and .env must never be "
@@ -42,12 +64,43 @@ MESSAGE = (
 )
 
 
+def strip_commit_messages(command: str) -> str:
+    """Replace each plain ``git commit`` message with "" so it is not checked."""
+    out: list[str] = []
+    pos = 0
+    for commit in GIT_COMMIT.finditer(command):
+        if commit.start() < pos:
+            continue
+        out.append(command[pos : commit.end()])
+        i = commit.end()
+        while i < len(command) and command[i] not in COMMAND_END:
+            message = COMMIT_MESSAGE.match(command, i) if command[i - 1].isspace() else None
+            quoted = QUOTED.match(command, i)
+            if message:
+                out.append(message.group("flag") + '""')
+                i = message.end()
+            elif quoted:
+                out.append(quoted.group())
+                i = quoted.end()
+            else:
+                out.append(command[i])
+                i += 1
+        pos = i
+    out.append(command[pos:])
+    return "".join(out)
+
+
 def is_blocked(event: dict[str, Any]) -> bool:
     """Return True when the tool call targets a secret file."""
+    tool_name = event.get("tool_name", "")
     tool_input = event.get("tool_input") or {}
-    for field in TARGET_FIELDS.get(event.get("tool_name", ""), ()):
+    for field in TARGET_FIELDS.get(tool_name, ()):
         value = tool_input.get(field)
-        if isinstance(value, str) and SECRET_TARGET.search(value):
+        if not isinstance(value, str):
+            continue
+        if tool_name in SHELL_TOOLS:
+            value = strip_commit_messages(value)
+        if SECRET_TARGET.search(value):
             return True
     return False
 

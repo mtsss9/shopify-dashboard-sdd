@@ -84,3 +84,78 @@ def test_exit_code(event: dict[str, Any], exit_code: int) -> None:
         check=False,
     )
     assert result.returncode == exit_code
+
+
+# --- git commit messages are not targets ---
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        'git commit -m "T9: run.ps1 launcher loads .env (spec 003 §6.6)"',
+        "git commit -m 'loads .env, never credentials.json'",
+        'git commit -m "T9: launcher" -m "reads .env" -m "Co-Authored-By: X <x@y.z>"',
+        'git commit --message "reads .env"',
+        'git commit --message=".env loader"',
+        'git commit -am "reads .env"',
+        'git commit -m".env"',
+        'git -C "D:/my repo" commit -m "reads .env"',
+        'git add run.ps1 && git commit -m "reads .env" && git push',
+        'git commit -q -m "a" -m "b .env" -- run.ps1 tests/test_run_ps1.py',
+    ],
+)
+def test_commit_message_naming_secret_is_allowed(command: str) -> None:
+    for tool in ("Bash", "PowerShell"):
+        assert not hook.is_blocked(_event(tool, command=command)), (tool, command)
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        # Staging, reading, printing or copying the files stays blocked.
+        "git add .env",
+        "git add credentials.json",
+        "git add -f .env",
+        "cat .env",
+        "type credentials.json",
+        "cp .env backup.txt",
+        "Copy-Item credentials.json $env:TEMP",
+        "Get-Content .env | Set-Clipboard",
+        # A secret named outside the message of the same git commit.
+        'git commit -m "x" .env',
+        'git commit -m "x" -- credentials.json',
+        'git commit -m "x" --include .env',
+        "git commit -F .env",
+        "git commit --file=.env",
+        'git commit --template=.env -m "x"',
+        # Another command after or before the commit.
+        'git commit -m "x" && cat .env',
+        'git commit -m "x"; type .env',
+        'git commit -m "x" | Get-Content credentials.json',
+        'git commit -m "x" || cp .env out.txt',
+        'git commit -m "x"\ncat .env',
+        'cat .env && git commit -m "x"',
+        # Messages that could run a command are still checked.
+        'git commit -m "$(cat .env)"',
+        'git commit -m "`cat .env`"',
+        'git commit -m "$(Get-Content credentials.json)"',
+        'git commit -m "$HOME/.env"',
+        'git commit -m "a\\" ; cat .env ; \\"b"',
+        # A message flag outside git commit is not exempt.
+        'git log -m ".env"',
+        'echo -m ".env"',
+        'git commit-tree -m ".env"',
+    ],
+)
+def test_secret_outside_plain_commit_message_is_blocked(command: str) -> None:
+    for tool in ("Bash", "PowerShell"):
+        assert hook.is_blocked(_event(tool, command=command)), (tool, command)
+
+
+def test_non_shell_tools_are_unchanged() -> None:
+    assert hook.is_blocked(_event("Grep", pattern='git commit -m ".env"'))
+
+
+def test_strip_keeps_everything_but_the_message() -> None:
+    command = 'git commit -q -m "loads .env" -- run.ps1 && git push'
+    assert hook.strip_commit_messages(command) == 'git commit -q -m "" -- run.ps1 && git push'
