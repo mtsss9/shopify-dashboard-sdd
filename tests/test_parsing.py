@@ -14,9 +14,10 @@ from conftest import (
     rename_header,
     serial,
     set_cell,
+    sheet_date,
 )
 from shopify_dashboard.errors import DataSourceError, ErrorCategory
-from shopify_dashboard.parsing import coerce_cell, parse_tabs
+from shopify_dashboard.parsing import SheetDate, coerce_cell, parse_tabs
 from shopify_dashboard.schema import COLUMNS, TABS, ColumnSpec
 
 
@@ -29,6 +30,8 @@ DISCOUNT = spec("Orders", "Discount (CAD)")
 QUANTITY = spec("Orders", "Quantity")
 UNIT_PRICE = spec("Orders", "Unit Price (CAD)")
 ORDER_DATE = spec("Orders", "Order Date")
+CUSTOMER_SINCE = spec("Customers", "Customer Since")
+DATE_COLUMNS = [ORDER_DATE, CUSTOMER_SINCE]
 ORDER_ID = spec("Orders", "Order ID")
 STATUS = spec("Orders", "Status")
 LINE_TOTAL = spec("Orders", "Line Total (CAD)")
@@ -311,20 +314,38 @@ def test_integer_rejects_text_and_bool(bad: object) -> None:
     assert coerce_cell(bad, QUANTITY) == (None, "must be a number")
 
 
-def test_date_from_serial_number() -> None:
-    """AC-02: dates arrive as serial numbers (epoch 1899-12-30)."""
-    assert coerce_cell(serial(TODAY), ORDER_DATE) == (TODAY, None)
-    assert coerce_cell(46032, ORDER_DATE) == (date(2026, 1, 10), None)
+@pytest.mark.parametrize("column", DATE_COLUMNS, ids=lambda c: c.header)
+def test_date_from_serial_number(column: ColumnSpec) -> None:
+    """AC-02 and AC-34: a date-formatted cell's serial number (epoch 1899-12-30) loads."""
+    assert coerce_cell(sheet_date(TODAY), column) == (TODAY, None)
+    assert coerce_cell(SheetDate(46032), column) == (date(2026, 1, 10), None)
 
 
-def test_date_serial_with_time_keeps_the_date() -> None:
-    assert coerce_cell(serial(TODAY) + 0.75, ORDER_DATE) == (TODAY, None)
+@pytest.mark.parametrize("column", DATE_COLUMNS, ids=lambda c: c.header)
+def test_date_serial_with_time_keeps_the_date(column: ColumnSpec) -> None:
+    """AC-34: a date-time cell keeps only the date."""
+    assert coerce_cell(SheetDate(serial(TODAY) + 0.75), column) == (TODAY, None)
 
 
-def test_date_from_iso_text() -> None:
+@pytest.mark.parametrize("column", DATE_COLUMNS, ids=lambda c: c.header)
+def test_date_from_iso_text(column: ColumnSpec) -> None:
     """AC-02, and the serial <-> ISO pair from the base fixture (C-102)."""
-    assert coerce_cell(" 2025-03-15 ", ORDER_DATE) == (date(2025, 3, 15), None)
-    assert coerce_cell(serial(date(2025, 3, 15)), ORDER_DATE) == (date(2025, 3, 15), None)
+    assert coerce_cell(" 2025-03-15 ", column) == (date(2025, 3, 15), None)
+    assert coerce_cell(sheet_date(date(2025, 3, 15)), column) == (date(2025, 3, 15), None)
+
+
+@pytest.mark.parametrize("column", DATE_COLUMNS, ids=lambda c: c.header)
+@pytest.mark.parametrize("plain", [45, 46032, serial(TODAY) + 0.75, 0])
+def test_plain_number_in_a_date_column_is_rejected(column: ColumnSpec, plain: object) -> None:
+    """AC-33: a number from a cell not formatted as a date is not a date value (spec §3)."""
+    assert coerce_cell(plain, column) == (None, "must be a date (YYYY-MM-DD)")
+
+
+def test_date_formatted_number_outside_a_date_column_is_a_plain_number() -> None:
+    """D27: the date format matters only in date columns; other columns behave as before."""
+    assert coerce_cell(SheetDate(3), QUANTITY) == (3, None)
+    assert coerce_cell(SheetDate(45), UNIT_PRICE) == (45.0, None)
+    assert coerce_cell(SheetDate(1984), NAME) == ("1984", None)
 
 
 def test_impossible_iso_date_is_rejected() -> None:

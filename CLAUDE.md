@@ -22,7 +22,7 @@ pytest                                   # run all tests
 pytest tests/test_kpis.py::test_name     # run a single test
 ruff check .                             # lint
 ruff format .                            # format
-streamlit run src/<app>.py               # run the dashboard (entry point not created yet)
+.\run.ps1                                # run the dashboard (loads .env, see specs/003 §6.6)
 ```
 
 ## Workflow rules (SDD)

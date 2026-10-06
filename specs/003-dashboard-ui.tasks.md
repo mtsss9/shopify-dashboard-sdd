@@ -102,7 +102,7 @@ Planning decisions U1–U11 are listed in plan §8.
 
 ## Tasks
 
-- [ ] **T1. Display helpers** (`display.py`, `tests/test_display.py`)
+- [x] **T1. Display helpers** (`display.py`, `tests/test_display.py`)
   - `ERROR_HEADINGS` for every `ErrorCategory`, with a test that none is missing.
   - `MONEY_FORMAT = "$%,.2f"`, `PCT_FORMAT = "%.1f%%"`, `MONEY_COLUMNS` and `number_formats(tab)` (sheet header → format string) (U11).
   - `table_view(tab, df)`:
@@ -119,27 +119,27 @@ Planning decisions U1–U11 are listed in plan §8.
     - AC-20 (`0.75` → `75.0`, `0.6667` → `66.67`, with `PCT_FORMAT`);
     - AC-17 (count text), AC-21, AC-22, AC-23, AC-24.
 
-- [ ] **T2. Filters** (`filters.py`, `tests/test_filters.py`)
+- [x] **T2. Filters** (`filters.py`, `tests/test_filters.py`)
   - `options`, `default_date_range` (`None` when empty, U6), `prune_selection`, `filter_values`, `filter_date_range`, `filter_orders`, `filter_products`, `filter_customers`.
   - Tested on the spec 001 fixture `LoadResult` plus small DataFrames with dates on the range boundaries.
   - *Covers:* AC-26 to AC-35 and AC-37 at unit level (AC-30 to AC-32 also in T6).
 
-- [ ] **T3. Cache** (`cache.py`, `tests/test_cache.py`)
+- [x] **T3. Cache** (`cache.py`, `tests/test_cache.py`)
   - `LoadCache` with `TTL_SECONDS = 300`, an injectable clock, `get`, `clear` and a lock.
   - `FakeClock` and a counting fake loader in the tests.
   - *Covers:* AC-01, AC-02, AC-04; AC-03 (`clear`, unit level).
 
-- [ ] **T4. Data quality helpers** (`quality.py`, `tests/test_quality.py`)
+- [x] **T4. Data quality helpers** (`quality.py`, `tests/test_quality.py`)
   - `banner_messages`, `summary_frame` (drop rate with 1 decimal, U7), `entries_frame` (`None` when empty; values as `str(value)`, U3).
   - Reports built with `make_entry` and `TabSummary`.
   - *Covers:* AC-07 (messages), AC-08, AC-39 to AC-45 at unit level.
 
-- [ ] **T5. App frame** (`app.py`, `tests/test_app.py`)
+- [x] **T5. App frame** (`app.py`, `tests/test_app.py`)
   - Page config, title, "Refresh data" button, `LoadCache` through `st.cache_resource`, error screen with `st.stop()`, banner, the four tabs (empty for now).
   - `AppTest.from_file` with `load_data` patched; autouse fixture clears `st.cache_resource`; `run(timeout=30)`.
   - *Covers:* AC-03 (button), AC-05, AC-06, AC-07, AC-10, AC-11, AC-12, AC-13, AC-14.
 
-- [ ] **T6. App table tabs** (`app.py`, `tests/test_app.py`)
+- [x] **T6. App table tabs** (`app.py`, `tests/test_app.py`)
   - Per tab: row count, widgets with per-tab keys, filtered table.
   - `st.dataframe(..., hide_index=True, column_config=...)` with `NumberColumn(format=...)` built from `number_formats(tab)` (U11).
   - Start and End `st.date_input` (U2), the start-after-end warning, no date pickers on an empty Orders tab (U6).
@@ -150,16 +150,16 @@ Planning decisions U1–U11 are listed in plan §8.
     - AC-17, AC-18, AC-21, AC-23, AC-25;
     - AC-30, AC-31, AC-32, AC-36.
 
-- [ ] **T7. App Data quality tab** (`app.py`, `tests/test_app.py`)
+- [x] **T7. App Data quality tab** (`app.py`, `tests/test_app.py`)
   - Summary table, then the entries table or "No problems found."
   - A test that the whole app shows no chart or metric element.
   - *Covers:* AC-08, AC-39, AC-41, AC-44 (in the app); AC-15.
 
-- [ ] **T8. Static checks** (`tests/test_static.py`)
+- [x] **T8. Static checks** (`tests/test_static.py`)
   - `ast`-based: the four pure modules import no `streamlit`; nothing in `src/` imports `dotenv` or names `.env`; `app.py` imports nothing from the data-layer modules and uses only `load_data` (and `DataSourceError`) from the package root.
   - *Covers:* AC-16, AC-38, AC-46.
 
-- [ ] **T9. Launcher and sign-off** (`run.ps1`)
+- [x] **T9. Launcher and sign-off** (`run.ps1`)
   - Written to plan §3 (U1, U8, U9). Claude does not run it, because it loads `.env`.
   - The user runs M1–M4; results recorded below.
   - Propose (not apply) a CLAUDE.md update for the `streamlit run` command, now that the entry point exists.
@@ -168,4 +168,13 @@ Planning decisions U1–U11 are listed in plan §8.
 
 ## Manual check result
 
-Not run yet.
+2026-10-05, run by the user:
+
+- **M1:** passed. `run.ps1` started the app at http://localhost:8501 and the real sheet loaded (Data quality tab: Orders 1000, Products 10, Customers 150 rows read, none dropped, "No problems found."). The user confirmed no configuration value was printed to the terminal.
+- **M2:** passed (reported by the user).
+- **M3:** passed (reported by the user).
+- **M4:** passed (reported by the user).
+
+CLAUDE.md: the run command now reads `.\run.ps1` (approved by the user, 2026-10-05).
+
+Automated: `pytest` 545 passed, `ruff check` clean. AC-01 to AC-46 ticked in spec §7.

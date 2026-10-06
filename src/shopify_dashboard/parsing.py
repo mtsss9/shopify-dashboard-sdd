@@ -8,8 +8,19 @@ from datetime import date, timedelta
 from shopify_dashboard.errors import DataSourceError, ErrorCategory
 from shopify_dashboard.schema import COLUMNS, TABS, ColumnSpec
 
+
+@dataclass(frozen=True)
+class SheetDate:
+    """A number read from a cell formatted as a date or date-time. Implements spec 001 §3 (D27)."""
+
+    serial: int | float
+
+
 RawTabs = dict[str, list[list[object]]]
-"""Tab name -> rows of cells, as the Sheets API returns them with unformatted values."""
+"""Tab name -> rows of cells, as the Sheets API returns them with unformatted values.
+
+Numbers from date-formatted cells arrive wrapped in ``SheetDate`` (D27).
+"""
 
 SHEETS_EPOCH = date(1899, 12, 30)
 DISCOUNT_HEADER = "Discount (CAD)"  # spec §4: blank means 0
@@ -111,7 +122,10 @@ def coerce_cell(value: object, spec: ColumnSpec) -> tuple[object | None, str | N
     A calculated cell holding a Sheets error value, or failing its type conversion, gives
     ``(None, UNREADABLE)``; validation records that as a warning (decision D16).
     Enum membership and ID formats are checked in validation, not here.
+    A ``SheetDate`` outside a date column is read as its plain number (D27).
     """
+    if isinstance(value, SheetDate) and spec.kind != "date":
+        value = value.serial
     typed, reason = _coerce(value, spec)
     if spec.calculated and (reason is not None or _is_sheets_error(value)):
         return None, UNREADABLE
@@ -144,9 +158,10 @@ def _coerce(value: object, spec: ColumnSpec) -> tuple[object | None, str | None]
 
 
 def _coerce_date(value: object) -> tuple[date | None, str | None]:
-    if _is_number(value):
+    # Only a number from a date-formatted cell is a date; a plain number is not (D27).
+    if isinstance(value, SheetDate) and _is_number(value.serial):
         try:
-            return SHEETS_EPOCH + timedelta(days=math.floor(value)), None
+            return SHEETS_EPOCH + timedelta(days=math.floor(value.serial)), None
         except (OverflowError, ValueError):
             return None, NOT_REAL_DATE
     if isinstance(value, str) and _ISO_DATE.fullmatch(value.strip()):

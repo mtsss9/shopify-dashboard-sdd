@@ -12,6 +12,9 @@ from pathlib import Path
 
 import pytest
 
+from shopify_dashboard.parsing import SheetDate
+from shopify_dashboard.schema import COLUMNS
+
 RawTabs = dict[str, list[list[object]]]
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -25,16 +28,45 @@ def serial(d: date) -> int:
     return (d - SHEETS_EPOCH).days
 
 
+def sheet_date(d: date) -> SheetDate:
+    """``d`` as the client returns it from a date-formatted cell. Implements spec 001 §3 (D27)."""
+    return SheetDate(serial(d))
+
+
+def _is_number(value: object) -> bool:
+    return isinstance(value, int | float) and not isinstance(value, bool)
+
+
 def load_fixture(name: str) -> RawTabs:
-    """Load a ``RawTabs`` JSON document from ``tests/fixtures/``."""
-    return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
+    """Load a ``RawTabs`` JSON document from ``tests/fixtures/``.
+
+    Numbers in date columns are wrapped in ``SheetDate``, as the real client does for the
+    real sheet's date-formatted cells (D27).
+    """
+    tabs: RawTabs = json.loads((FIXTURES / name).read_text(encoding="utf-8"))
+    for tab, rows in tabs.items():
+        dates = {s.header for s in COLUMNS.get(tab, ()) if s.kind == "date"}
+        cols = [i for i, h in enumerate(rows[0] if rows else []) if h in dates]
+        for row in rows[1:]:
+            for i in cols:
+                if i < len(row) and _is_number(row[i]):
+                    row[i] = SheetDate(row[i])
+    return tabs
+
+
+def unwrap_dates(tabs: RawTabs) -> RawTabs:
+    """Turn every ``SheetDate`` back into its plain number, as the values API returns it."""
+    return {
+        t: [[v.serial if isinstance(v, SheetDate) else v for v in row] for row in rows]
+        for t, rows in tabs.items()
+    }
 
 
 class FakeSheetsClient:
     """In-memory stand-in for the ``SheetsClient`` protocol (plan §5.1).
 
-    Returns values as the API does with unformatted rendering: numbers as int/float,
-    dates as serial numbers and blanks as ``""``.
+    Returns values as ``GspreadSheetsClient`` does: numbers as int/float, dates from
+    date-formatted cells as ``SheetDate`` serial numbers (D27) and blanks as ``""``.
     """
 
     def __init__(self, tabs: RawTabs, error: Exception | None = None) -> None:

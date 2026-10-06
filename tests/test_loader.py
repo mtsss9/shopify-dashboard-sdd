@@ -20,9 +20,11 @@ from conftest import (
     rename_header,
     serial,
     set_cell,
+    sheet_date,
 )
 from shopify_dashboard import DataSourceError, LoadResult, load_data
 from shopify_dashboard.errors import ErrorCategory
+from shopify_dashboard.parsing import SheetDate
 from shopify_dashboard.report import Severity
 
 SPEC_9_COLUMNS = {
@@ -98,7 +100,7 @@ def test_dtypes(base_tabs: dict) -> None:
 
 
 def test_dates_are_normalised_to_midnight(base_tabs: dict) -> None:
-    set_cell(base_tabs, "Orders", 2, "Order Date", serial(date(2026, 1, 10)) + 0.75)
+    set_cell(base_tabs, "Orders", 2, "Order Date", SheetDate(serial(date(2026, 1, 10)) + 0.75))
     first = load(base_tabs).orders["order_date"].iloc[0]
     assert first == pd.Timestamp("2026-01-10")
 
@@ -106,7 +108,7 @@ def test_dates_are_normalised_to_midnight(base_tabs: dict) -> None:
 def test_today_defaults_to_the_current_date(base_tabs: dict) -> None:
     """Spec §7.4: an order dated tomorrow is dropped when today is not passed."""
     tomorrow = date.fromordinal(date.today().toordinal() + 1)
-    set_cell(base_tabs, "Orders", 2, "Order Date", serial(tomorrow))
+    set_cell(base_tabs, "Orders", 2, "Order Date", sheet_date(tomorrow))
     result = load_data(FakeSheetsClient(base_tabs))
     assert "#1001" not in order_ids(result)
 
@@ -328,8 +330,8 @@ def test_recomputed_stats_match_the_sheet(base_tabs: dict) -> None:
 
 def test_future_order_date(base_tabs: dict) -> None:
     """AC-17."""
-    set_cell(base_tabs, "Orders", 2, "Order Date", serial(date(2026, 6, 2)))
-    set_cell(base_tabs, "Orders", 3, "Order Date", serial(TODAY))
+    set_cell(base_tabs, "Orders", 2, "Order Date", sheet_date(date(2026, 6, 2)))
+    set_cell(base_tabs, "Orders", 3, "Order Date", sheet_date(TODAY))
     result = load(base_tabs)
     assert "#1001" not in order_ids(result) and "#1002" in order_ids(result)
     assert entries(result) == [
@@ -339,11 +341,34 @@ def test_future_order_date(base_tabs: dict) -> None:
 
 def test_order_before_customer_since(base_tabs: dict) -> None:
     """AC-18."""
-    set_cell(base_tabs, "Orders", 5, "Order Date", serial(date(2025, 11, 1)))
+    set_cell(base_tabs, "Orders", 5, "Order Date", sheet_date(date(2025, 11, 1)))
     result = load(base_tabs)
     assert "#1004" in order_ids(result)
     assert entries(result) == [
         ("Orders", 5, "Order Date", "before the customer's Customer Since", Severity.WARNING)
+    ]
+
+
+def test_duplicate_rows_get_only_their_duplicate_entry(base_tabs: dict) -> None:
+    """AC-31 (spec §7.2, amended): no unreadable-cell warning on a duplicate-key row."""
+    set_cell(base_tabs, "Orders", 3, "Order ID", "#1001")
+    set_cell(base_tabs, "Orders", 2, "Product Name", "#N/A")
+    assert entries(load(base_tabs)) == [
+        ("Orders", 2, "Order ID", "duplicate Order ID", Severity.DROPPED),
+        ("Orders", 3, "Order ID", "duplicate Order ID", Severity.DROPPED),
+    ]
+
+
+def test_money_bounds_are_exact(base_tabs: dict) -> None:
+    """AC-32 (spec §3, amended): only the Discount limit and Line Total use the tolerance."""
+    set_cell(base_tabs, "Orders", 2, "Discount (CAD)", -0.001)
+    set_cell(base_tabs, "Orders", 3, "Unit Price (CAD)", 0.005)
+    set_cell(base_tabs, "Orders", 3, "Discount (CAD)", 0)  # was 5, above 1 × 0.005
+    set_cell(base_tabs, "Orders", 3, "Line Total (CAD)", "")  # no mismatch warning to clutter
+    result = load(base_tabs)
+    assert "#1001" not in order_ids(result) and "#1002" in order_ids(result)
+    assert entries(result) == [
+        ("Orders", 2, "Discount (CAD)", "must be 0 or more", Severity.DROPPED)
     ]
 
 

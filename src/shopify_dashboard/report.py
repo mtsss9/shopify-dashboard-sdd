@@ -4,6 +4,8 @@ import re
 from dataclasses import dataclass, field
 from enum import StrEnum
 
+from shopify_dashboard.parsing import SheetDate
+
 EMAIL_COLUMN = "Email"
 DROP_THRESHOLD = 0.05
 _MASKED = re.compile(r"[^@]?\*\*\*(@[^@]*)?")  # already masked: re-masking is a no-op
@@ -58,7 +60,12 @@ def make_entry(
     reason: str,
     severity: Severity = Severity.DROPPED,
 ) -> ReportEntry:
-    """Build a report entry; Email values are masked. Implements specs/001-data-source.md §7.3."""
+    """Build a report entry; Email values are masked. Implements specs/001-data-source.md §7.3.
+
+    A ``SheetDate`` is stored as its serial number, the raw cell value (D27).
+    """
+    if isinstance(value, SheetDate):
+        value = value.serial
     return ReportEntry(tab, row, column, value, reason, severity)
 
 

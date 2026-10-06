@@ -4,7 +4,7 @@ from datetime import date
 
 import pytest
 
-from conftest import TODAY, load_fixture, serial, set_cell
+from conftest import TODAY, load_fixture, set_cell, sheet_date
 from shopify_dashboard.parsing import parse_tabs
 from shopify_dashboard.report import ReportEntry, Severity
 from shopify_dashboard.validation import (
@@ -356,8 +356,8 @@ def test_sheet_product_name_mismatch_is_ignored(base_tabs: dict) -> None:
 
 def test_future_order_date_is_dropped_and_today_loads(base_tabs: dict) -> None:
     """AC-17: today is 2026-06-01."""
-    set_cell(base_tabs, "Orders", 2, "Order Date", serial(date(2026, 6, 2)))
-    set_cell(base_tabs, "Orders", 3, "Order Date", serial(TODAY))
+    set_cell(base_tabs, "Orders", 2, "Order Date", sheet_date(date(2026, 6, 2)))
+    set_cell(base_tabs, "Orders", 3, "Order Date", sheet_date(TODAY))
     rows, entries = orders(base_tabs)
     assert "#1001" not in kept_ids(rows) and "#1002" in kept_ids(rows)
     assert reasons(entries) == [(2, "Order Date", "must not be after today")]
@@ -365,7 +365,7 @@ def test_future_order_date_is_dropped_and_today_loads(base_tabs: dict) -> None:
 
 def test_order_before_customer_since_is_a_warning(base_tabs: dict) -> None:
     """AC-18: #1004 (row 5) belongs to C-103, customer since 2025-11-02."""
-    set_cell(base_tabs, "Orders", 5, "Order Date", serial(date(2025, 11, 1)))
+    set_cell(base_tabs, "Orders", 5, "Order Date", sheet_date(date(2025, 11, 1)))
     rows, entries = orders(base_tabs)
     assert len(rows) == 8
     assert [(e.row, e.column, e.reason, e.severity) for e in entries] == [
@@ -374,7 +374,7 @@ def test_order_before_customer_since_is_a_warning(base_tabs: dict) -> None:
 
 
 def test_order_on_customer_since_day_is_fine(base_tabs: dict) -> None:
-    set_cell(base_tabs, "Orders", 5, "Order Date", serial(date(2025, 11, 2)))
+    set_cell(base_tabs, "Orders", 5, "Order Date", sheet_date(date(2025, 11, 2)))
     assert orders(base_tabs)[1] == []
 
 
